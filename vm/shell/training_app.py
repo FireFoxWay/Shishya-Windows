@@ -1,0 +1,221 @@
+#!/usr/bin/env python3
+"""
+Training Data — drop in documents, then ask about them.
+
+Drag any file onto the list (or use Add). It is read, split, and indexed. Then
+ask a question in plain language and get an answer drawn only from what was
+dropped in, with the passages it used shown underneath.
+
+── Why retrieval is keyword-based rather than embeddings ───────────────────
+
+An embedding model would retrieve better. It would also be a second model to
+pull, hold in memory beside the 8B and the VM, and explain. Scored term
+overlap with rarity weighting is a few dozen lines, needs nothing extra, and
+on a folder of tens of documents — which is what this is for — it is good
+enough that the model's reading is the bottleneck, not the retrieval.
+
+The rule that matters more than either: the answer must come from the
+documents. Asked something the documents do not cover, it says so.
+"""
+
+import math
+import re
+import threading
+from collections import Counter
+from pathlib import Path
+
+import gi
+gi.require_version("Gtk", "3.0")
+gi.require_version("Gdk", "3.0")
+from gi.repository import Gdk, GLib, Gtk   # noqa: E402
+
+import common   # noqa: E402
+from library import STOP, terms, LATIN, for_retrieval, Library, MAKE_VERBS, MAKE_KINDS, wants_a_file, SYSTEM  # noqa: E402,F401
+
+
+# ─── asking vs asking-for ───────────────────────────────────────────────────
+# People type what they want into whichever window is already open. Told to
+# "create a comparison table in Excel", a question-answering app that replies
+# "I cannot find it in the documents" is technically obedient and plainly
+# wrong. So the app reads intent first and hands creation work to the document
+# writer, using the same documents as source.
+#
+# Keyword matching rather than asking the model: it is instant, it is
+# predictable, and a misfire here would send someone's question off to build a
+# spreadsheet — a surprise far more annoying than a missed shortcut.
+
+
+class TrainingApp(Gtk.Window):
+    def __init__(self):
+        super().__init__(title="Training Data")
+        self.set_default_size(860, 640)
+        self.connect("destroy", Gtk.main_quit)
+        self.library = Library()
+
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+        self.add(root)
+
+        head = Gtk.Box(spacing=10, margin=14)
+        title = Gtk.Label(xalign=0)
+        title.set_markup("<b>Training Data</b>")
+        head.pack_start(title, False, False, 0)
+        self.count = Gtk.Label(label="nothing yet", xalign=0)
+        self.count.set_opacity(.65)
+        head.pack_start(self.count, True, True, 0)
+
+        add = Gtk.Button(label="Add documents")
+        add.get_accessible().set_name("Add documents")
+        add.connect("clicked", self.on_add)
+        head.pack_end(add, False, False, 0)
+        root.pack_start(head, False, False, 0)
+
+        # ── the documents ──
+        self.store = Gtk.ListStore(str, str, str)
+        view = Gtk.TreeView(model=self.store)
+        view.get_accessible().set_name("Documents")
+        for i, col in enumerate(("Document", "Pieces", "How it was read")):
+            view.append_column(Gtk.TreeViewColumn(col, Gtk.CellRendererText(), text=i))
+        scroll = Gtk.ScrolledWindow(margin_start=14, margin_end=14)
+        scroll.set_size_request(-1, 190)
+        scroll.add(view)
+        root.pack_start(scroll, False, False, 0)
+
+        # Drop anywhere on the window, not just the list — people aim at the
+        # window, and a drop that lands two pixels wide and does nothing reads
+        # as the feature being broken.
+        self.drag_dest_set(Gtk.DestDefaults.ALL, [], Gdk.DragAction.COPY)
+        self.drag_dest_add_uri_targets()
+        self.connect("drag-data-received", self.on_drop)
+
+        hint = Gtk.Label(label="Drop files anywhere on this window — text, PDF, "
+                               "spreadsheets, documents", margin=8)
+        hint.set_opacity(.55)
+        root.pack_start(hint, False, False, 0)
+
+        # ── ask ──
+        ask_row = Gtk.Box(spacing=8, margin_start=14, margin_end=14)
+        self.entry = Gtk.Entry(placeholder_text="Ask something about these documents")
+        self.entry.get_accessible().set_name("Question")
+        self.entry.connect("activate", self.on_ask)
+        ask_row.pack_start(self.entry, True, True, 0)
+        self.askbtn = Gtk.Button(label="Ask")
+        self.askbtn.get_accessible().set_name("Ask")
+        self.askbtn.connect("clicked", self.on_ask)
+        ask_row.pack_end(self.askbtn, False, False, 0)
+        root.pack_start(ask_row, False, False, 0)
+
+        self.answer = Gtk.TextView(editable=False, wrap_mode=Gtk.WrapMode.WORD,
+                                   left_margin=10, right_margin=10, top_margin=8)
+        self.answer.get_accessible().set_name("Answer")
+        answer_scroll = Gtk.ScrolledWindow(margin=14)
+        answer_scroll.add(self.answer)
+        root.pack_start(answer_scroll, True, True, 0)
+
+        self.load_existing()
+
+    # ── documents in ──
+
+    def load_existing(self):
+        common.TRAINING.mkdir(parents=True, exist_ok=True)
+        for p in sorted(common.TRAINING.iterdir()):
+            if p.is_file():
+                self.ingest(p)
+
+    def on_add(self, _btn):
+        chooser = Gtk.FileChooserDialog(
+            title="Add documents", transient_for=self, action=Gtk.FileChooserAction.OPEN)
+        chooser.add_buttons("Cancel", Gtk.ResponseType.CANCEL, "Add", Gtk.ResponseType.OK)
+        chooser.set_select_multiple(True)
+        if chooser.run() == Gtk.ResponseType.OK:
+            for name in chooser.get_filenames():
+                self.ingest(Path(name))
+        chooser.destroy()
+
+    def on_drop(self, _w, _ctx, _x, _y, data, _info, _time):
+        for uri in data.get_uris():
+            path = uri[7:] if uri.startswith("file://") else uri
+            self.ingest(Path(GLib.uri_unescape_string(path, None) or path))
+
+    def ingest(self, path):
+        if not path.is_file():
+            return
+        pieces, how = self.library.add(path)
+        self.store.append([path.name, str(pieces), how])
+        docs = len(self.store)
+        self.count.set_text(f"{docs} document{'s' if docs != 1 else ''}, "
+                            f"{len(self.library.chunks)} pieces indexed")
+
+    # ── questions ──
+
+    def on_ask(self, _w):
+        question = self.entry.get_text().strip()
+        if not question:
+            return
+        if not self.library.chunks:
+            return self.show("Add some documents first — I only answer from what is here.")
+
+        kind = wants_a_file(question)
+        # Building something needs the whole picture, not the four best-matching
+        # fragments — a comparison table drawn from a quarter of the document
+        # comes out with a quarter of the rows.
+        found = self.library.search(question, k=10 if kind else 4)
+        if not found:
+            return self.show("Nothing in these documents looks related to that.")
+
+        self.askbtn.set_sensitive(False)
+        self.show(f"Building the {kind.lower()}…" if kind else "Reading…")
+        common.set_state("working")
+
+        passages = "\n\n".join(f"[from {src}]\n{text}" for src, text in found)
+        # A spreadsheet answers as both a table and a text chunk, so it
+        # arrives under two labels — "file.xlsx" and "file.xlsx — Sheet1".
+        # The reader only cares which document it came from.
+        sources = "\n".join(
+            f"  · {src}" for src in sorted({src.split(" — ")[0] for src, _ in found}))
+
+        def work():
+            if kind:
+                GLib.idle_add(self.done, self.build(kind, question, passages, sources))
+                return
+            try:
+                reply = common.ask_job("answers", f"PASSAGES:\n{passages}\n\nQUESTION: {question}",
+                                   system=SYSTEM)
+            except RuntimeError as e:
+                reply = str(e)
+            GLib.idle_add(self.done, f"{reply.strip()}\n\nRead from:\n{sources}")
+
+        threading.Thread(target=work, daemon=True).start()
+
+    def build(self, kind, question, passages, sources):
+        """Same writers the Make a Document app uses — one implementation, so a
+        file built from here is identical to one built from there."""
+        import json
+        import make_app
+
+        prompt = (f"{make_app.ASKS[kind]}\n\nWHAT IS NEEDED:\n{question}\n\n"
+                  f"SOURCE MATERIAL — build this from the facts below and do "
+                  f"not invent competing ones:\n{passages}\n\n"
+                  f"Give it a short, sensible filename with no extension.")
+        try:
+            spec = json.loads(common.ask_job("answers", prompt, schema=make_app.SCHEMAS[kind]))
+            path = make_app.WRITERS[kind](spec)
+        except (json.JSONDecodeError, KeyError) as e:
+            return f"The model returned something I could not turn into a file: {e}"
+        except Exception as e:
+            return f"Could not write the file: {e}"
+        return (f"Made {path.name}\n\nIt is in Work/ — open the Work folder on "
+                f"the desktop.\n\nBuilt from:\n{sources}")
+
+    def done(self, text):
+        self.show(text)
+        self.askbtn.set_sensitive(True)
+        common.set_state("idle")
+        return False
+
+    def show(self, text):
+        self.answer.get_buffer().set_text(text)
+
+
+if __name__ == "__main__":
+    TrainingApp().show_all()
+    Gtk.main()

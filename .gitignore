@@ -1,0 +1,68 @@
+# Runtime state, not source.
+var/
+*.log
+
+# Recorded demonstrations: large, full of screenshots, and specific to one
+# machine's session. Traces are data, not code.
+shared/traces/
+# Generated documents and incoming files are output, not source.
+shared/work/*
+!shared/work/.gitkeep
+shared/inbox/*
+!shared/inbox/.gitkeep
+
+.DS_Store
+__pycache__/
+*.pyc
+
+# ─── What the machine accumulated, not what the project is ──────────────────
+# Everything below is written by the running system. It is real state on this
+# laptop and noise in a repository someone else clones: their machine will
+# write its own. The line between them is "could a fresh clone regenerate
+# this by being used" — if yes, it does not belong here.
+
+# Completed work: 26MB of generated reports, invoices and programs across
+# eighteen job folders, each specific to one run on one machine.
+shared/jobs/
+
+# The shop's own trade. catalogue.csv stays — it is the seed data every other
+# part of the system is demonstrated against, and a clone with no catalogue
+# has no shop. What the shop DID is per-machine.
+shared/billing/sales.csv
+shared/billing/customers.csv
+shared/billing/*.before-gst
+
+# Written by the panel and the apps as they are used.
+shared/approvals.json
+shared/tasks.json
+shared/.alerts.json
+shared/.schedules.json
+shared/.role
+shared/.state
+shared/.browsing
+shared/.shutdown-requested
+
+# Somebody's own money. Balances, card limits, what they owe and when it goes
+# out — typed in by the person, never fetched from a bank, and never leaving
+# the machine they typed it on. The repository has a second collaborator on
+# it; this is not theirs to read.
+shared/money/
+shared/.profile.json
+shared/models/
+
+# Windows: the local build environment, and the clone runtime a checkout can point at.
+.venv/
+runtime/
+
+# ─── Shishya-Windows: what never leaves the machine ─────────────────────────
+# shared/ is the shop's own working folder: its books, its training material
+# (in the original repository that was a real pharmacy's purchase history),
+# its money, its lessons. Only the demo catalogue is source; everything else
+# under shared/ belongs to the machine that wrote it.
+shared/*
+!shared/billing/
+shared/billing/*
+!shared/billing/catalogue.csv
+# Build output: made by windows/build.ps1, published as release assets.
+*.exe
+*-portable.zip

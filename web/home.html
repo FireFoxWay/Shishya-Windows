@@ -1,0 +1,1212 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Shishya</title>
+<link rel="icon" href="favicon.ico">
+<style>
+[hidden] { display: none !important; }
+/* The home screen. Light only, by design (docs/design/design-guide.html).
+   Greeting card left, apps right, a status dock bottom-centre; butter and
+   mint mark the two things that matter in each panel.
+
+   Everything on it is live — read from the counter's books, the inbox, the
+   schedule and the sandbox itself (host/home.py). It was drawn as a demo with
+   sample figures; on a screen a shop owner trusts, a number that is not real
+   is the worst thing it could show, so none of them are. */
+:root {
+  --accent: #1F9D55;          /* green: on, selected, safe */
+  --accent-2: #9BE5AE;        /* soft green: the name's underline */
+  --butter: #F8E7B0;
+  --mint: #CDE8E3;
+  --peach: #F9DCCB;
+  --ink: #121212;
+  /* Ink 2 a step darker than the guide's #6E6E6A: it sits on frosted glass
+     over a dark photo, and at #6E6E6A the labels fell under 4.5:1 there. */
+  --ink-2: #57574F;
+  --ink-3: #A3A39E;
+  --line: rgba(0, 0, 0, .08);
+  --card: #FFFFFF;
+  /* More opaque than the guide's 70%, and whiter towards the bottom: the
+     lower half of the photo averages 30/255, which turned the panels grey. */
+  --mica: rgba(250, 251, 252, .80);
+  --mica-low: rgba(252, 252, 253, .92);
+  --mica-tile: rgba(255, 255, 255, .62);
+  --mica-tile-hover: rgba(255, 255, 255, .9);
+  --dock: rgba(250, 251, 252, .88);
+  --page: #F3F3F0;
+  --good: #1F9D55;
+  --warn: #B87800;
+  --bad: #C8321E;
+  --shadow: 0 1px 2px rgba(0, 0, 0, .04), 0 8px 24px rgba(0, 0, 0, .06);
+  /* One family; Indic scripts fall to faces that have them, so a name or a
+     reply in Hindi or Telugu never comes out as boxes. */
+  --font: "Helvetica Neue", Helvetica, "Arial Nova", Arial, "Segoe UI", "Nirmala UI",
+          "Kohinoor Devanagari", "Kohinoor Telugu", "Noto Sans Devanagari", "Noto Sans Telugu",
+          system-ui, sans-serif;
+  --blur: blur(40px) saturate(1.5);
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: var(--page); color: var(--ink); font-family: var(--font);
+  font-size: 15px; line-height: 1.45; -webkit-font-smoothing: antialiased; overflow-x: hidden;
+}
+button, input, select { font: inherit; color: inherit; }
+button { background: none; border: 0; cursor: pointer; }
+button:disabled { cursor: default; opacity: .55; }
+:focus-visible { outline: 3px solid var(--accent); outline-offset: 3px; border-radius: 12px; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.skip { position: absolute; left: 12px; top: -60px; z-index: 30; background: var(--ink); color: var(--card);
+        padding: 10px 16px; border-radius: 999px; text-decoration: none; }
+.skip:focus { top: 12px; }
+
+/* ── the photo ─────────────────────────────────────────────────────── */
+/* Pre-blurred on disk (wallpaper-soft.jpg) rather than blurred live: a
+   full-screen CSS blur is repainted on every frame the page changes, on a
+   laptop whose processor is mostly the model's. */
+.scene { position: fixed; inset: 0; z-index: 0; overflow: hidden; }
+.scene img { width: 100%; height: 100%; display: block; object-fit: cover; object-position: center 35%; }
+
+/* ── two pages, one window ─────────────────────────────────────────── */
+/* The home dashboard, and to its right the clone's screen. One window for
+   everything: the clone does not get a window of its own on the person's
+   desktop; its screen lives here, a swipe away. */
+.pages { position: relative; z-index: 2; display: flex; width: 200vw; height: 100vh;
+         transition: transform .55s cubic-bezier(.22, .8, .24, 1); }
+.pages > .page { width: 100vw; height: 100vh; overflow-y: auto; overflow-x: hidden; flex: none; }
+body.on-clone .pages { transform: translateX(-100vw); }
+body.on-clone .dock-wrap { opacity: 0; pointer-events: none; transform: translateY(20px); }
+.dock-wrap { transition: opacity .3s, transform .3s; }
+
+/* the edge arrows: there when there is somewhere to go, quiet otherwise */
+.edge {
+  position: fixed; top: 50%; z-index: 7; width: 34px; height: 92px; margin-top: -46px;
+  display: grid; place-items: center; color: var(--ink);
+  background: rgba(250, 251, 252, .72); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--line); box-shadow: var(--shadow);
+  opacity: .55; transition: opacity .25s, width .25s, transform .4s, visibility .4s;
+}
+.edge:hover, .edge:focus-visible { opacity: 1; width: 42px; }
+.edge svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.edge.next { right: 0; border-radius: 18px 0 0 18px; border-right: 0; }
+.edge.back { left: 0; border-radius: 0 18px 18px 0; border-left: 0; background: rgba(30, 30, 30, .72); color: #E9EBEE; border-color: rgba(255,255,255,.1); }
+.edge.next { animation: nudge 2.6s ease-in-out 3; }
+@keyframes nudge { 0%, 70%, 100% { transform: translateX(0); } 80% { transform: translateX(-5px); } 90% { transform: translateX(0); } }
+.edge[hidden] { display: grid !important; visibility: hidden; opacity: 0; pointer-events: none; }
+.edge.next[hidden] { transform: translateX(40px); }
+
+/* the clone's page */
+.clone { background: #0b0c0e; color: #E9EBEE; display: grid; grid-template-rows: auto 1fr; }
+.clone-bar { display: flex; align-items: center; gap: 10px; padding: 12px 20px 12px 52px; flex-wrap: wrap; }
+.clone-bar h2 { font-size: 15px; font-weight: 600; margin: 0 auto 0 4px; letter-spacing: .01em; }
+.clone-bar h2 small { font-weight: 400; color: #9AA0A7; margin-left: 8px; font-size: 13px; }
+.dark-chip { display: inline-flex; align-items: center; gap: 8px; min-height: 38px; padding: 0 14px; border-radius: 999px;
+             background: #1A1B1E; border: 1px solid rgba(255,255,255,.1); color: #E9EBEE; font-size: 13.5px; font-weight: 600; }
+.dark-chip:hover { background: #26282C; }
+.dark-chip svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.dark-chip[aria-pressed="true"] { background: #E9EBEE; color: #0b0c0e; }
+.stage { position: relative; padding: 0 20px 18px 52px; min-height: 0; display: grid; }
+.stage img, .stage iframe { width: 100%; height: 100%; min-height: 0; display: block; object-fit: contain;
+                            border: 0; border-radius: 12px; background: #050607; outline: none; user-select: none; }
+.stage img:focus-visible { box-shadow: 0 0 0 3px var(--accent); }
+.stage .note { position: absolute; inset: 0 20px 18px 52px; display: grid; place-items: center; text-align: center;
+               color: #9AA0A7; font-size: 15px; gap: 12px; padding: 20px; }
+.stage .note b { color: #E9EBEE; display: block; font-size: 18px; margin-bottom: 6px; }
+
+/* ── the desk ──────────────────────────────────────────────────────── */
+.desk {
+  position: relative; z-index: 2; min-height: 100vh;
+  padding: 18px 24px 150px; display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); grid-template-rows: auto 1fr;
+  gap: 22px; max-width: 1280px; margin: 0 auto; align-items: start;
+}
+.topbar { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.brand { display: flex; align-items: baseline; gap: 8px; font-weight: 700; letter-spacing: -.01em;
+         color: var(--card); text-shadow: 0 1px 8px rgba(0, 0, 0, .35); font-size: 17px; margin-right: auto; }
+.brand small { font-weight: 500; font-size: 14px; opacity: .9; }
+.chip {
+  display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 16px;
+  border-radius: 999px; background: var(--dock); backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--line); font-size: 14px; font-weight: 600; text-decoration: none; color: var(--ink);
+}
+.chip:hover { background: var(--card); }
+.chip svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.chip .dot { width: 9px; height: 9px; border-radius: 50%; background: var(--ink-3); flex: none; }
+.chip[data-state="running"] .dot { background: var(--good); }
+.chip[data-state="starting"] .dot { background: var(--warn); }
+.power { width: 40px; padding: 0; justify-content: center; }
+.power:hover { color: var(--bad); }
+
+/* frosted panels: solid content on top, the photo only behind */
+.panel {
+  border-radius: 24px; border: 1px solid var(--line); box-shadow: var(--shadow);
+  background: linear-gradient(var(--mica), var(--mica-low));
+  backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+}
+
+/* greeting card */
+.hello { padding: 26px 28px 22px; display: grid; gap: 18px; align-self: start; }
+.eyebrow { font-size: 12.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-2); font-weight: 600; }
+.greet-row { display: flex; align-items: center; gap: 14px; }
+.greet { font-size: clamp(36px, 5vw, 58px); line-height: 1.05; font-weight: 500; letter-spacing: -.035em; margin: 0; text-wrap: balance; }
+.greet button { font-weight: 700; border-bottom: 3px solid var(--accent-2); padding: 0 2px; border-radius: 4px; letter-spacing: inherit; }
+.greet button:hover { background: rgba(155, 229, 174, .25); }
+.wx { margin-left: auto; line-height: 0; flex: none; }
+.wx svg { width: 120px; height: 94px; }
+.wx-rays { transform-origin: 58px 50px; animation: spin 40s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.wx-moon, .wx-stars { opacity: 0; transition: opacity .8s; }
+body[data-sky="night"] .wx-sun { opacity: 0; }
+body[data-sky="night"] .wx-moon, body[data-sky="night"] .wx-stars { opacity: 1; }
+body[data-sky="dusk"] .wx-sun { transform: translate(0, 14px); }
+.wx-sun { transition: opacity .8s, transform .8s; }
+.next { font-size: 18px; color: var(--ink); max-width: 36ch; margin: 0; }
+.next small { display: block; font-size: 14px; color: var(--ink-2); margin-top: 2px; }
+.stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.stat { border-radius: 14px; padding: 14px 16px; background: var(--butter); text-align: left; display: block; width: 100%; }
+.stat + .stat { background: var(--mint); }
+.stat:hover { filter: brightness(1.02); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .08); }
+.stat > span { display: block; }
+a.tile { text-decoration: none; color: var(--ink); }
+.stat .k { font-size: 12.5px; color: var(--ink-2); letter-spacing: .04em; text-transform: uppercase; font-weight: 600; }
+.stat .v { font-size: 28px; font-weight: 500; letter-spacing: -.02em; font-variant-numeric: tabular-nums; margin-top: 2px; }
+.stat .d { font-size: 13px; color: var(--ink-2); }
+.ask { display: flex; gap: 8px; }
+.ask input {
+  flex: 1; min-width: 0; height: 48px; border-radius: 999px; border: 1px solid rgba(0, 0, 0, .14);
+  padding: 0 18px; background: var(--card);
+}
+.ask input::placeholder { color: #75756F; }
+.ask button { height: 48px; padding: 0 22px; border-radius: 999px; background: var(--ink); color: var(--card); font-weight: 600; }
+.answer { background: var(--card); border-radius: 16px; padding: 14px 16px; font-size: 14.5px; white-space: pre-wrap;
+          max-height: 260px; overflow: auto; border: 1px solid var(--line); }
+.answer.waiting { color: var(--ink-2); }
+.source { font-size: 12.5px; color: var(--ink-2); }
+
+/* apps */
+.apps { padding: 18px; }
+.apps-head { display: flex; align-items: baseline; justify-content: space-between; margin: 2px 4px 14px; }
+.apps h2 { font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); margin: 0; }
+.apps-head span { font-size: 12.5px; color: var(--ink-2); }
+.grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: 98px; grid-auto-flow: dense; gap: 10px; list-style: none; margin: 0; padding: 0; }
+.tile {
+  position: relative; text-align: left; border-radius: 16px; padding: 13px 14px; background: var(--mica-tile);
+  border: 1px solid var(--line); display: flex; flex-direction: column; justify-content: space-between;
+  transition: background .2s, transform .2s; min-width: 0; width: 100%; height: 100%;
+}
+.tile:hover { background: var(--mica-tile-hover); transform: translateY(-2px); }
+.tile:active { transform: translateY(0) scale(.98); }
+.tile[aria-busy="true"] { opacity: .7; }
+li.wide { grid-column: span 2; }
+li.tall { grid-row: span 2; }
+.tile .ic { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--card); color: var(--ink); }
+.tile.hero { background: var(--butter); border-color: transparent; }
+.tile.soft { background: var(--mint); border-color: transparent; }
+.tile .name { font-weight: 600; font-size: 15px; display: block; }
+.tile .sub { font-size: 13px; color: var(--ink-2); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile .badge { position: absolute; top: 12px; right: 12px; font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: var(--ink); color: var(--card); font-variant-numeric: tabular-nums; }
+.tile .badge.warn { background: var(--peach); color: var(--ink); }
+.ic svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.bars { display: flex; align-items: flex-end; gap: 4px; height: 44px; margin: 6px 0 0; }
+.bars i { flex: 1; background: var(--peach); border-radius: 3px 3px 0 0; min-height: 3px; }
+
+/* the dock */
+.dock-wrap { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; display: grid; justify-items: center;
+             padding: 0 16px calc(16px + env(safe-area-inset-bottom, 0px)); pointer-events: none; }
+.dock-row { position: relative; display: flex; flex-direction: column; align-items: center; max-width: 100%; }
+.dock {
+  pointer-events: auto; display: flex; align-items: stretch; border-radius: 999px; background: var(--dock);
+  backdrop-filter: var(--blur); -webkit-backdrop-filter: var(--blur);
+  border: 1px solid var(--line); box-shadow: var(--shadow); max-width: 100%;
+}
+.seg { display: flex; align-items: center; padding: 0 4px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.seg + .seg { border-left: 1px solid var(--line); }
+.lbl { color: var(--ink-2); font-size: 12.5px; text-transform: uppercase; letter-spacing: .06em; font-weight: 600; }
+.limit { display: flex; flex-direction: column; align-items: flex-start; padding: 6px 14px; margin: 4px 0; border-radius: 999px; line-height: 1.2; }
+.limit:hover, .limit[aria-expanded="true"] { background: var(--line); }
+.limit b { font-size: 15px; font-weight: 600; }
+.limit small { font-size: 12px; color: var(--ink-2); }
+.lock { position: relative; display: flex; align-items: center; gap: 8px; padding: 6px 14px; margin: 4px 2px; border-radius: 999px; font-weight: 600; font-size: 14px; color: var(--good); }
+.lock svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; }
+.lock:hover, .lock[aria-expanded="true"] { background: var(--line); }
+.lock[data-mode="browsing"], .lock[data-mode="ssh"], .lock[data-mode="open"] { color: var(--warn); }
+.lock[data-mode=""] { color: var(--ink-2); }
+.lock span { color: var(--ink); }
+.clock { text-align: right; line-height: 1.2; padding: 6px 18px 6px 14px; }
+.clock b { font-weight: 600; font-size: 15px; display: block; }
+.clock span { color: var(--ink-2); font-size: 12.5px; }
+
+/* the orb pill: follows what the clone is actually doing */
+.orb-stack { display: grid; justify-items: center; margin-bottom: 10px; pointer-events: auto; }
+.t-orb {
+  display: flex; align-items: center; gap: 10px; padding: 6px 18px 6px 8px; border-radius: 999px;
+  background: #1A1A1A; border: 1px solid rgba(255, 255, 255, .06); color: #D6D6D6;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, .2), 0 10px 30px rgba(0, 0, 0, .22); transition: transform .2s;
+}
+.t-orb:hover { transform: translateY(-2px); }
+.t-orb canvas { width: 32px; height: 32px; display: block; flex: none; }
+.orb-label { font-size: 15px; font-weight: 500; letter-spacing: .005em; min-width: 5.5em; text-align: left; }
+
+/* popovers above the dock */
+.picker {
+  pointer-events: auto; position: absolute; bottom: calc(100% + 12px); left: 50%; transform: translateX(-50%);
+  width: 260px; border-radius: 20px; background: var(--card); box-shadow: 0 10px 40px rgba(0, 0, 0, .18);
+  border: 1px solid var(--line); padding: 12px 0; opacity: 0; translate: 0 8px; transition: opacity .2s, translate .2s; visibility: hidden;
+}
+.picker.open { opacity: 1; translate: 0 0; visibility: visible; }
+.picker h3 { font-size: 12.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); text-align: center; margin: 4px 0 8px; font-weight: 600; }
+.picker p { font-size: 13px; color: var(--ink-2); padding: 6px 18px 4px; text-align: center; margin: 0; }
+.modes { display: grid; gap: 4px; padding: 0 10px; }
+.modes button { display: grid; grid-template-columns: 22px 1fr; align-items: center; gap: 4px 10px; text-align: left; padding: 10px 12px; border-radius: 14px; font-size: 15px; }
+.modes button small { grid-column: 2; font-size: 12.5px; color: var(--ink-2); }
+.modes button::before { content: ""; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--ink-3); grid-row: span 2; justify-self: center; }
+.modes button[aria-checked="true"] { background: var(--mint); font-weight: 600; }
+.modes button[aria-checked="true"]::before { border-color: var(--accent); background: radial-gradient(var(--accent) 45%, transparent 50%); }
+.modes button:hover { background: var(--page); }
+.picker.dial { width: 330px; }
+.track {
+  display: flex; align-items: center; height: 64px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 30%, #000 70%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 30%, #000 70%, transparent);
+}
+.track::-webkit-scrollbar { display: none; }
+.track .dpad { flex: 0 0 calc(50% - 32px); }
+.track button { flex: 0 0 64px; height: 52px; scroll-snap-align: center; font-size: 15px; font-variant-numeric: tabular-nums; position: relative; }
+.track button::after { content: ""; position: absolute; left: 50%; bottom: 2px; width: 1px; height: 6px; background: var(--ink-3); }
+.track button.on { color: var(--accent); font-weight: 700; }
+.notch { width: 0; height: 0; margin: 0 auto; border: 7px solid transparent; border-bottom-color: var(--accent); border-top: 0; }
+.picker.activity { width: 320px; padding: 14px 16px; text-align: left; }
+.picker.activity p { text-align: left; padding: 0 0 8px; }
+.picker.activity .row { display: flex; gap: 8px; flex-wrap: wrap; }
+.picker.who { width: 300px; padding: 14px 16px; bottom: auto; top: calc(100% + 10px); left: 0; transform: none; }
+.who label { display: grid; gap: 4px; font-size: 13px; color: var(--ink-2); font-weight: 600; margin-bottom: 10px; }
+.who input { height: 40px; border-radius: 12px; border: 1px solid rgba(0, 0, 0, .14); padding: 0 12px; font-weight: 400; color: var(--ink); }
+
+/* confirm, toast, banner */
+.pop { position: fixed; top: 68px; right: 24px; z-index: 9; width: 300px; border-radius: 18px; background: var(--card); box-shadow: 0 10px 40px rgba(0, 0, 0, .18); border: 1px solid var(--line); padding: 18px; display: grid; gap: 12px; }
+.pop .row, .row { display: flex; gap: 8px; justify-content: flex-end; }
+.btn { min-height: 40px; padding: 0 16px; border-radius: 999px; border: 1px solid rgba(0, 0, 0, .14); font-weight: 600; background: var(--card); }
+.btn:hover { background: var(--page); }
+.btn.primary { background: var(--ink); color: var(--card); border-color: transparent; }
+.btn.danger { background: var(--bad); color: #fff; border-color: transparent; }
+.toast { position: fixed; left: 50%; bottom: 150px; transform: translateX(-50%); z-index: 9; background: var(--ink); color: var(--card); padding: 11px 20px; border-radius: 999px; font-size: 14px; box-shadow: var(--shadow); max-width: calc(100% - 32px); }
+
+@media (max-width: 900px) {
+  .desk { grid-template-columns: minmax(0, 1fr); padding: 16px 16px 170px; }
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  li.tall { grid-row: span 1; }
+  .bars { display: none; }
+  .seg.lim { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+/* Windows "Transparency effects" off, or a slow laptop: solid panels, no
+   frosted glass at all. Same layout, same colours, nothing to composite. */
+@media (prefers-reduced-transparency: reduce) {
+  .panel, .chip, .dock { background: #FAFBFC; backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .tile { background: #FFFFFF; }
+}
+body.solid .panel, body.solid .chip, body.solid .dock { background: #FAFBFC; backdrop-filter: none; -webkit-backdrop-filter: none; }
+body.solid .tile { background: #FFFFFF; }
+</style>
+</head>
+<body>
+<a class="skip" href="#askInput">Skip to Ask</a>
+<div class="scene" aria-hidden="true"><img src="wallpaper-soft.jpg" alt=""></div>
+
+<div class="pages" id="pages">
+<div class="page" id="homePage">
+<main class="desk" id="desk">
+  <header class="topbar">
+    <div class="brand">Shishya <small lang="hi">शिष्य</small></div>
+    <span class="chip" id="sandboxChip" data-state="unknown" role="status" aria-live="polite">
+      <span class="dot" aria-hidden="true"></span><span id="sandboxText">Checking the sandbox…</span>
+    </span>
+    <button class="chip" id="startBtn" hidden>Start the sandbox</button>
+    <button class="chip" id="screenBtn" title="Show the clone's own screen">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+      Clone's screen
+    </button>
+    <a class="chip" id="panelLink" href="/panel" title="Every control: lessons, jobs, files, the ledger, secrets">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg>
+      Control panel
+    </a>
+    <button class="chip power" id="powerBtn" aria-label="Shut down the sandbox" aria-haspopup="dialog" aria-expanded="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v8"/><path d="M6.3 6.8a8 8 0 1 0 11.4 0"/></svg>
+    </button>
+  </header>
+
+  <section class="panel hello" aria-labelledby="greet">
+    <div class="eyebrow" id="dateLine"></div>
+    <div class="greet-row" style="position:relative">
+      <h1 class="greet" id="greet">Hello, <button id="userBtn" aria-haspopup="dialog" aria-expanded="false">there</button></h1>
+      <div class="picker who" id="whoPop" role="dialog" aria-labelledby="whoTitle">
+        <h3 id="whoTitle" style="text-align:left;margin:0 0 10px">Who is at the counter</h3>
+        <label>Your name<input id="nameInput" autocomplete="name" maxlength="60"></label>
+        <div class="modes" role="radiogroup" aria-label="Working as" id="roleGroup" style="padding:0">
+          <button role="radio" data-role="head" aria-checked="false">Head<small>can void, roll back, change the network</small></button>
+          <button role="radio" data-role="clerk" aria-checked="false">Clerk<small>the counter's everyday work</small></button>
+        </div>
+        <div class="row" style="margin-top:10px"><button class="btn primary" id="whoSave">Save</button></div>
+      </div>
+      <span class="wx" aria-hidden="true">
+        <svg viewBox="0 0 140 110">
+          <defs>
+            <radialGradient id="wxSun" cx=".38" cy=".35"><stop offset="0" stop-color="#FFF3C4"/><stop offset=".45" stop-color="#FFC233"/><stop offset="1" stop-color="#FD9D45"/></radialGradient>
+            <radialGradient id="wxMoon" cx=".4" cy=".35"><stop offset="0" stop-color="#FFF4C8"/><stop offset="1" stop-color="#F0C04A"/></radialGradient>
+            <linearGradient id="wxCloud" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#E4E9F0"/></linearGradient>
+          </defs>
+          <g class="wx-sun">
+            <g class="wx-rays" stroke="#FFC233" stroke-width="5" stroke-linecap="round">
+              <path d="M58 6v10M58 84v10M14 50h10M92 50h10M27 19l7 7M82 74l7 7M27 81l7-7M82 26l7-7"/>
+            </g>
+            <circle cx="58" cy="50" r="24" fill="url(#wxSun)"/>
+          </g>
+          <g class="wx-stars" fill="#D9B85A"><circle cx="20" cy="22" r="2"/><circle cx="104" cy="14" r="1.6"/><circle cx="118" cy="44" r="1.4"/><circle cx="36" cy="78" r="1.4"/></g>
+          <path class="wx-moon" d="M74 26a26 26 0 1 0 22 40 22 22 0 1 1-22-40z" fill="url(#wxMoon)" stroke="rgba(150,110,20,.35)"/>
+          <path d="M62 100h50a14 14 0 0 0 0-28 20 20 0 0 0-38-4 15 15 0 0 0-12 32z" fill="url(#wxCloud)" stroke="rgba(30,40,60,.08)" transform="translate(6 -2) scale(.95)"/>
+        </svg>
+      </span>
+    </div>
+    <p class="next" id="nextLine">Where do we start today?</p>
+    <div class="stats">
+      <button class="stat" id="takingsCard" data-app="billing_app.py">
+        <span class="k">Today's takings</span>
+        <span class="v" id="takings">—</span>
+        <span class="d" id="takingsNote">Reading the books…</span>
+      </button>
+      <button class="stat" id="billsCard" data-app="billing_app.py">
+        <span class="k">Bills today</span>
+        <span class="v" id="bills">—</span>
+        <span class="d" id="billsNote"></span>
+      </button>
+    </div>
+    <form class="ask" id="askForm" role="search">
+      <input id="askInput" placeholder="Ask about your shop…  (press / to come here)" aria-label="Ask Shishya" autocomplete="off">
+      <button type="submit" id="askBtn">Ask</button>
+    </form>
+    <div class="answer waiting" id="answer" role="region" aria-live="polite" aria-label="Shishya's answer" hidden></div>
+    <div class="source" id="source">From the counter's own books, on this laptop.</div>
+  </section>
+
+  <section class="panel apps" aria-labelledby="appsTitle">
+    <div class="apps-head"><h2 id="appsTitle">Apps</h2><span>open on the clone's screen</span></div>
+    <ul class="grid" id="grid">
+      <li class="wide"><button class="tile hero" data-app="chat_app.py">
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg></span>
+        <span><span class="name">Shishya</span><span class="sub" data-sub="chat">Ask about your documents and books</span></span>
+      </button></li>
+      <li><button class="tile" data-app="billing_app.py">
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg></span>
+        <span><span class="name">Billing</span><span class="sub" data-sub="billing">GST counter</span></span>
+      </button></li>
+      <li class="tall"><button class="tile" data-app="findings_app.py">
+        <span class="badge warn" data-badge="findings" hidden></span>
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg></span>
+        <span><span class="name">Findings</span><span class="sub" data-sub="findings">What is wrong with your data</span><span class="sub" data-sub="findings2"></span></span>
+      </button></li>
+      <li><button class="tile" data-app="reports_app.py">
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7"/></svg></span>
+        <span><span class="name">Reports</span><span class="sub" data-sub="reports">Charts from your files</span></span>
+      </button></li>
+      <li><button class="tile" data-app="inbox_app.py">
+        <span class="badge" data-badge="inbox" hidden></span>
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 13l3-8h10l3 8v6H4z"/><path d="M4 13h5l1 2h4l1-2h5"/></svg></span>
+        <span><span class="name">Inbox</span><span class="sub" data-sub="inbox">Files you sent in</span></span>
+      </button></li>
+      <li><button class="tile" data-app="sheet_app.py">
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M10 4v16"/></svg></span>
+        <span><span class="name">Sheets</span><span class="sub">Open a spreadsheet</span></span>
+      </button></li>
+      <li class="wide"><button class="tile soft" data-app="make_app.py">
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/></svg></span>
+        <span><span class="name">Make a Document</span><span class="sub">Excel, Word or PowerPoint from one sentence</span></span>
+      </button></li>
+      <li><button class="tile" data-app="files_app.py">
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 7h7l2 2h9v10H3z"/></svg></span>
+        <span><span class="name">Files</span><span class="sub">Work, Inbox, Lessons</span></span>
+      </button></li>
+      <li><button class="tile" data-app="training_app.py">
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 6c3-2 5-2 8 0v13c-3-2-5-2-8 0zM12 6c3-2 5-2 8 0v13c-3-2-5-2-8 0z"/></svg></span>
+        <span><span class="name">Training Data</span><span class="sub" data-sub="training">Documents it reads</span></span>
+      </button></li>
+      <li><button class="tile" data-app="activity_app.py">
+        <span class="badge warn" data-badge="refused" hidden></span>
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 12h4l3-7 4 14 3-7h4"/></svg></span>
+        <span><span class="name">Activity</span><span class="sub" data-sub="activity">Every action logged</span></span>
+      </button></li>
+      <li><button class="tile" data-app="models_app.py">
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></svg></span>
+        <span><span class="name">Models</span><span class="sub" data-sub="models">Which AI does which job</span></span>
+      </button></li>
+      <li><button class="tile" data-app="system_app.py">
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 15l3-4 3 2 4-5"/></svg></span>
+        <span><span class="name">Task Manager</span><span class="sub" data-sub="system">What the sandbox uses</span></span>
+      </button></li>
+      <li><button class="tile" data-app="settings_app.py">
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg></span>
+        <span><span class="name">Settings</span><span class="sub">The clone's screen</span></span>
+      </button></li>
+      <li class="wide"><button class="tile" data-app="shishya_app.py">
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg></span>
+        <span><span class="name">Teach a lesson</span><span class="sub" data-sub="lessons">Do a job once; it writes down what it learned</span></span>
+      </button></li>
+      <li><button class="tile" data-app="code_app.py">
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M8 8l-4 4 4 4M16 8l4 4-4 4M14 5l-4 14"/></svg></span>
+        <span><span class="name">Code</span><span class="sub">Run a script safely</span></span>
+      </button></li>
+      <li><button class="tile" data-app="bank_app.py">
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 10l9-6 9 6M5 10v8M10 10v8M14 10v8M19 10v8M3 20h18"/></svg></span>
+        <span><span class="name">Banking</span><span class="sub">Accounts, what goes out</span></span>
+      </button></li>
+      <li><button class="tile" data-app="credit_app.py">
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></svg></span>
+        <span><span class="name">Credit</span><span class="sub">What your numbers say</span></span>
+      </button></li>
+      <li><button class="tile" data-app="browser_app.py">
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg></span>
+        <span><span class="name">Browser</span><span class="sub" data-sub="browser">Only when you allow it</span></span>
+      </button></li>
+      <li class="wide"><a class="tile" href="/panel">
+        <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></span>
+        <span><span class="name" style="color:var(--ink)">Control panel</span><span class="sub">Lessons, jobs, the ledger, files in and out, secrets</span></span>
+      </a></li>
+    </ul>
+  </section>
+</main>
+</div>
+
+<section class="page clone" id="clonePage" aria-labelledby="cloneTitle" inert>
+  <div class="clone-bar">
+    <button class="dark-chip" id="homeBtn">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Home
+    </button>
+    <h2 id="cloneTitle">The clone's screen <small id="cloneState">sandboxed · 1440 × 900</small></h2>
+    <button class="dark-chip" id="wheelBtn" aria-pressed="true" title="When on, your clicks and typing go to the clone">
+      You have control
+    </button>
+    <button class="dark-chip" id="popBtn" title="Open the clone's screen in a window of its own, with a real mouse and every key">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-8 8M18 14v5H5V6h5"/></svg>Pop out
+    </button>
+  </div>
+  <div class="stage" id="stage">
+    <img id="cloneScreen" alt="The clone's screen" draggable="false" tabindex="0"
+         aria-describedby="screenHelp">
+    <span class="sr" id="screenHelp">The clone's live screen. Click into it to give it the keyboard; typing goes to the clone's window under your last click.</span>
+    <div class="note" id="screenNote" hidden></div>
+  </div>
+</section>
+</div>
+
+<button class="edge next" id="toClone" aria-label="Go to the clone's screen" title="The clone's screen" hidden>
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+</button>
+<button class="edge back" id="toHome" aria-label="Back to the home screen" title="Home" hidden>
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+</button>
+
+<div class="dock-wrap">
+  <div class="dock-row" id="dockRow">
+    <div class="picker" id="netPop" role="dialog" aria-labelledby="netTitle">
+      <h3 id="netTitle">What the sandbox may reach</h3>
+      <div class="modes" role="radiogroup" aria-labelledby="netTitle" id="netModes">
+        <button role="radio" data-mode="locked" aria-checked="false">Locked<small>only the AI model on this laptop</small></button>
+        <button role="radio" data-mode="browsing" aria-checked="false">Browsing<small>web pages, in the sandbox's browser</small></button>
+        <button role="radio" data-mode="ssh" aria-checked="false">SSH<small>your saved servers</small></button>
+      </div>
+      <p id="netNote">Every change is written to the activity log.</p>
+    </div>
+    <div class="picker dial" id="dial" role="dialog" aria-labelledby="dialTitle">
+      <h3 id="dialTitle">CPU limit</h3>
+      <div class="track" id="dialTrack" tabindex="0" role="slider" aria-labelledby="dialTitle"></div>
+      <div class="notch" aria-hidden="true"></div>
+      <p id="dialNote"></p>
+    </div>
+    <div class="picker activity" id="actPop" role="dialog" aria-labelledby="actTitle">
+      <h3 id="actTitle" style="text-align:left;margin:0 0 6px">What Shishya is doing</h3>
+      <p id="actDetail"></p>
+      <p id="actFacts" style="font-size:12.5px"></p>
+      <div class="row" style="justify-content:flex-start">
+        <button class="btn" id="actScreen">Show its screen</button>
+        <a class="btn" href="/panel" style="display:inline-flex;align-items:center;text-decoration:none;color:var(--ink)">Control panel</a>
+      </div>
+    </div>
+    <div class="orb-stack">
+      <button class="t-orb" id="orbBtn" aria-haspopup="dialog" aria-expanded="false" aria-describedby="orbLabel">
+        <canvas id="orbCanvas" aria-hidden="true"></canvas>
+        <span class="orb-label" id="orbLabel" role="status" aria-live="polite">Ready</span>
+      </button>
+    </div>
+    <div class="dock" role="toolbar" aria-label="The sandbox">
+      <div class="seg lim" data-win><button class="limit" id="cpuBtn" aria-haspopup="dialog" aria-expanded="false"><span class="lbl">CPU limit</span><b id="cpuVal">—</b></button></div>
+      <div class="seg lim" data-win><button class="limit" id="ramBtn" aria-haspopup="dialog" aria-expanded="false"><span class="lbl">RAM limit</span><b id="ramVal">—</b><small id="ramUsed"></small></button></div>
+      <div class="seg"><button class="lock" id="lockBtn" data-mode="" aria-haspopup="dialog" aria-expanded="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 9a14 14 0 0 1 19 0"/><path d="M5.5 12.5a9.5 9.5 0 0 1 13 0"/><path d="M8.7 16a5 5 0 0 1 6.6 0"/><circle cx="12" cy="19.3" r="1" fill="currentColor"/></svg>
+        <span id="lockText">Network</span>
+      </button></div>
+      <div class="seg clock" aria-label="Time"><div><b id="time"></b><span id="day"></span></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="pop" id="powerPop" hidden role="alertdialog" aria-labelledby="powerTitle" aria-describedby="powerBody">
+  <b id="powerTitle">Shut down the sandbox?</b>
+  <span id="powerBody" style="color:var(--ink-2);font-size:14px">The clone's apps close. Everything saved in Work, and the books, stay where they are.</span>
+  <div class="row"><button class="btn" id="powerNo">Cancel</button><button class="btn danger" id="powerYes">Shut down</button></div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch {} }
+  };
+
+  // ── talking to the host ──────────────────────────────────────────────
+  async function call(route, body) {
+    const res = await fetch(`/api/${route}`, {
+      method: body === undefined ? "GET" : "POST",
+      headers: body === undefined ? {} : { "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+    if (data.error) throw new Error(data.error);
+    return data;
+  }
+  window.shishya = { call };
+
+  let tt;
+  function toast(msg) { const t = $("toast"); t.textContent = msg; t.hidden = false; clearTimeout(tt); tt = setTimeout(() => t.hidden = true, 3600); }
+
+  const rupees = n => "₹" + Number(n || 0).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const plural = (n, one, many) => `${n} ${n === 1 ? one : (many || one + "s")}`;
+
+  // A slow laptop gets solid panels: frosted glass is the costliest thing on
+  // the screen to draw, and the model wants every core it can get.
+  if ((navigator.hardwareConcurrency || 8) <= 4) document.body.classList.add("solid");
+
+  // ── date, sky, clock ──────────────────────────────────────────────────
+  // No weather service: the sandbox is offline and the panel does not reach
+  // out to fetch a forecast either. The picture follows the time of day.
+  const sky = () => {
+    const h = new Date().getHours();
+    document.body.dataset.sky = h >= 19 || h < 6 ? "night" : h >= 17 ? "dusk" : "day";
+  };
+  const clock = () => {
+    const d = new Date();
+    $("time").textContent = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: false });
+    $("day").textContent = d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short" });
+    $("dateLine").textContent = d.toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long" });
+    sky();
+  };
+  clock(); setInterval(clock, 15000);
+
+  // Lines that are true on any day. Anything specific — files waiting, a run
+  // due, a request for the head — comes from the data instead.
+  const LINES = ["Where do we start today?", "What should I learn from you today?",
+                 "Ask me anything about your books.", "Ready when you are.",
+                 "Good to see you. Pick an app to begin."];
+  const now = new Date();
+  const dayOfYear = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 864e5);
+
+  // ── the live state ────────────────────────────────────────────────────
+  let state = null, asking = false, override = null;
+  const setSub = (k, text) => document.querySelectorAll(`[data-sub="${k}"]`).forEach(e => e.textContent = text);
+  const setBadge = (k, n, label) => document.querySelectorAll(`[data-badge="${k}"]`).forEach(e => {
+    e.hidden = !n; e.textContent = n > 999 ? "999+" : n; e.setAttribute("aria-label", label || "");
+  });
+
+  function paint(h) {
+    state = h;
+    // who
+    const name = h.name || "there";
+    $("userBtn").textContent = name;
+    $("userBtn").setAttribute("aria-label", `${h.name ? h.name : "Add your name"}, working as ${h.role}. Change`);
+
+    // what is next — real things first, a friendly line otherwise
+    const next = [];
+    if (h.approvals) next.push(`${plural(h.approvals, "request")} ${h.approvals === 1 ? "is" : "are"} waiting for the head.`);
+    if (h.inbox) next.push(`${plural(h.inbox, "file")} ${h.inbox === 1 ? "is" : "are"} waiting in the Inbox.`);
+    if (h.schedule && h.schedule.today) next.push(`Next up: ${h.schedule.label} at ${h.schedule.at}.`);
+    if (h.alerts && h.alerts.length) next.push(h.alerts[0]);
+    $("nextLine").innerHTML = "";
+    $("nextLine").append(next[0] || LINES[dayOfYear % LINES.length]);
+    if (next[1]) { const s = document.createElement("small"); s.textContent = next.slice(1, 3).join("  ·  "); $("nextLine").append(s); }
+
+    // today's figures, from the counter's own books
+    const t = h.today;
+    if (t) {
+      $("takings").textContent = rupees(t.takings);
+      $("bills").textContent = Number(t.bills).toLocaleString("en-IN");
+      $("takingsNote").textContent = !t.any_sales ? "Nothing billed yet — open Billing"
+        : t.change === null ? (t.takings ? "Nothing on this day last week to compare" : "Nothing billed yet today")
+        : `${t.change >= 0 ? "↑" : "↓"} ${Math.abs(t.change)}% on last ${new Date().toLocaleDateString("en-IN", { weekday: "long" })}`;
+      $("billsNote").textContent = t.bills ? `GST ${rupees(t.tax)} inside` : "Prices include GST";
+      $("source").textContent = t.last_sale ? `From the counter's own books · last sale at ${t.last_sale}`
+                                            : "From the counter's own books, on this laptop.";
+    }
+
+    // tiles
+    setBadge("inbox", h.inbox, `${plural(h.inbox, "file")} waiting`);
+    setSub("inbox", h.inbox ? `${plural(h.inbox, "file")} waiting` : "Nothing waiting");
+    setBadge("findings", h.low_stock, `${h.low_stock} low on stock`);
+    setSub("findings", h.low_stock ? `${h.low_stock} low on stock` : "What is wrong with your data");
+    setSub("findings2", h.out_of_stock ? `${h.out_of_stock} out of stock` : (h.alerts[0] || ""));
+    setSub("reports", h.schedule ? `${h.schedule.label} at ${h.schedule.at}` : "Charts from your files");
+    setSub("training", h.training ? plural(h.training, "document") : "Nothing added yet");
+    setSub("models", h.model || "Pick a model");
+    setSub("lessons", h.lessons ? `${plural(h.lessons, "lesson")} learned · run them from the panel` : "Do a job once; it writes down what it learned");
+    setSub("activity", h.ledger.today ? `${plural(h.ledger.today, "action")} today` : "Every action logged");
+    setBadge("refused", h.ledger.refused, `${h.ledger.refused} refused today`);
+    setSub("system", h.sandbox.state === "running" ? `${plural(h.sandbox.processes || 0, "program")} running` : "What the sandbox uses");
+    setSub("browser", h.network.mode === "browsing" ? "The web is allowed" : "Only when you allow it");
+    setSub("billing", t && t.bills ? `${plural(t.bills, "bill")} today` : "GST counter");
+
+    // sandbox
+    const s = h.sandbox.state;
+    const chip = $("sandboxChip");
+    chip.dataset.state = s;
+    $("sandboxText").textContent =
+      s === "running" ? "Sandbox running" : s === "starting" ? "Sandbox starting…" :
+      s === "absent" ? "Sandbox not made yet" : s === "no-runtime" ? "Sandbox missing — reinstall" :
+      s === "unknown" ? "Checking the sandbox…" : "Sandbox off";
+    $("startBtn").hidden = !(s === "stopped" || s === "absent");
+    $("startBtn").textContent = s === "absent" ? "Make the sandbox" : "Start the sandbox";
+    $("powerBtn").disabled = s !== "running";
+    paintArrow();
+    paintClonePage(h);
+
+    // dock: network
+    const n = h.network, mode = n.mode || "";
+    const btn = $("lockBtn");
+    btn.dataset.mode = mode;
+    const word = { locked: "Locked", browsing: "Browsing", ssh: "SSH", open: "Open" }[mode] || "Off";
+    $("lockText").textContent = word;
+    // Said in the sandbox's own measured words, never inferred from the mode.
+    btn.setAttribute("aria-label", `Network: ${word}.${n.detail ? " " + n.detail + "." : ""} Change`);
+    btn.title = n.detail || "";
+    document.querySelectorAll("#netModes [role=radio]").forEach(r => r.setAttribute("aria-checked", String(r.dataset.mode === mode)));
+    $("netNote").textContent = h.role !== "head" ? "Only the head changes the network. Every change is logged."
+                                                 : "Every change is written to the activity log.";
+
+    // dock: limits (Windows — the job object's caps)
+    const L = h.limits;
+    document.querySelectorAll("[data-win]").forEach(e => e.hidden = !L);
+    if (L) {
+      DIALS.cpu.value = L.cpu; DIALS.ram.value = L.ram;
+      DIALS.ram.values = range(2, Math.max(2, L.machine_ram), 1);
+      $("cpuVal").textContent = L.cpu + "%";
+      $("ramVal").textContent = L.ram + " GB";
+      $("ramUsed").textContent = L.ram_used ? `${L.ram_used} GB in use` : "";
+    }
+
+    // What a screen reader says for each tile and figure: its name, what it
+    // currently shows, and any badge — the same facts a glance gives.
+    document.querySelectorAll(".tile").forEach(tile => {
+      const parts = [tile.querySelector(".name")?.textContent,
+                     ...[...tile.querySelectorAll(".sub")].map(s => s.textContent),
+                     ...[...tile.querySelectorAll(".badge:not([hidden])")].map(b => b.getAttribute("aria-label"))];
+      tile.setAttribute("aria-label", parts.filter(Boolean).join(". "));
+    });
+    document.querySelectorAll(".stat").forEach(card => {
+      const [k, v, d] = [...card.children].map(c => c.textContent);
+      card.setAttribute("aria-label", `${k}: ${v}. ${d}. Opens Billing.`);
+    });
+
+    // the orb follows the work
+    if (!override) orbTo(h.activity.state, h.activity.label);
+    $("actDetail").textContent = override ? override.detail : h.activity.detail;
+    $("actFacts").textContent = `Network ${word.toLowerCase()} · ${plural(h.ledger.today, "action")} logged today` +
+                                (h.ledger.refused ? ` · ${h.ledger.refused} refused` : "");
+  }
+
+  async function refresh() {
+    try { paint(await call("home")); }
+    catch (e) { $("sandboxText").textContent = "The panel is not answering"; $("sandboxChip").dataset.state = "unknown"; }
+  }
+  refresh();
+  setInterval(() => { if (document.visibilityState !== "hidden") refresh(); }, 4000);
+
+  // ── the orb (drawn by the module script below) ───────────────────────
+  function orbTo(s, label) {
+    document.dispatchEvent(new CustomEvent("shishya:orb", { detail: { state: s, label } }));
+  }
+  function busy(s, label, detail) { override = { state: s, label, detail }; orbTo(s, label); $("actDetail").textContent = detail; }
+  function idle() { override = null; if (state) orbTo(state.activity.state, state.activity.label); }
+
+  // ── the sandbox has to be up before anything opens on it ─────────────
+  async function ensureRunning() {
+    const s = state?.sandbox.state;
+    if (s === "running") return true;
+    if (s === "no-runtime") { toast("This copy of Shishya is missing its runtime. Reinstall it."); return false; }
+    busy("connecting", "Starting", "starting the sandbox");
+    toast(s === "absent" ? "Making the sandbox — a few seconds, once." : "Starting the sandbox…");
+    try { await call(s === "absent" ? "vm/create" : "vm/start", {}); await refresh(); return true; }
+    catch (e) { toast(`Could not start the sandbox: ${e.message}`); return false; }
+    finally { idle(); }
+  }
+
+  const isWindows = () => state?.platform === "windows";
+
+  // ── two pages: home, and the clone's screen to its right ─────────────
+  // One window for everything. The clone's screen is a page of this one,
+  // a swipe away; the inactive page is inert, so Tab never wanders into
+  // something off-screen, and reduced motion turns the swipe into a cut.
+  const onClone = () => document.body.classList.contains("on-clone");
+  function goClone() {
+    if (state?.sandbox.state !== "running") return;
+    document.body.classList.add("on-clone");
+    $("homePage").inert = true; $("clonePage").inert = false;
+    $("toClone").hidden = true; $("toHome").hidden = false;
+    closeAll();
+    screenPump.start();
+    setTimeout(() => $("cloneScreen").focus({ preventScroll: true }), 560);
+  }
+  function goHome() {
+    document.body.classList.remove("on-clone");
+    $("homePage").inert = false; $("clonePage").inert = true;
+    $("toHome").hidden = true;
+    paintArrow();
+    screenPump.stop();
+    setTimeout(() => (state?.sandbox.state === "running" ? $("toClone") : $("askInput")).focus({ preventScroll: true }), 560);
+  }
+  function paintArrow() {
+    $("toClone").hidden = onClone() || state?.sandbox.state !== "running";
+  }
+  async function showScreen() {
+    if (!isWindows()) { goClone(); return; }
+    if (state?.sandbox.popped) { try { await call("screen/dock", {}); } catch {} }
+    goClone();
+  }
+  $("toClone").onclick = goClone;
+  $("toHome").onclick = goHome;
+  $("homeBtn").onclick = goHome;
+  // Alt+→ and Alt+← move between the two pages, as in a browser.
+  document.addEventListener("keydown", e => {
+    if (!e.altKey || e.ctrlKey) return;
+    if (e.key === "ArrowRight" && !onClone() && state?.sandbox.state === "running") { e.preventDefault(); goClone(); }
+    if (e.key === "ArrowLeft" && onClone()) { e.preventDefault(); goHome(); }
+  });
+
+  // ── the clone's screen: a picture of its window, and your hands on it ─
+  const shot = $("cloneScreen");
+  let control = true;
+  const screenPump = (() => {
+    let on = false, timer = null, iframe = null;
+    const next = delay => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (!on) return;
+        if (document.visibilityState === "hidden") return next(1500);
+        shot.src = `/api/screen?w=${Math.round(Math.min(1440, shot.clientWidth * devicePixelRatio || 1440))}&t=${Date.now()}`;
+      }, delay);
+    };
+    // One frame in flight at a time: the next is asked for when this one
+    // has drawn, so a slow machine gets fewer frames, never a backlog.
+    shot.onload = () => { $("screenNote").hidden = true; shot.hidden = false; next(120); };
+    shot.onerror = () => next(1200);
+    return {
+      start() {
+        if (!isWindows()) {
+          // The Mac's clone has its own display; noVNC shows it here.
+          if (!iframe) {
+            iframe = document.createElement("iframe");
+            iframe.title = "The clone's screen"; iframe.allow = "fullscreen";
+            iframe.src = "http://localhost:6080/vnc.html?autoconnect=1&reconnect=1&resize=scale&quality=9&bell=off";
+            shot.replaceWith(iframe);
+          }
+          return;
+        }
+        on = true; next(0);
+      },
+      stop() { on = false; clearTimeout(timer); },
+      nudge() { if (on) next(60); }
+    };
+  })();
+
+  function paintClonePage(h) {
+    const popped = h.sandbox.popped, running = h.sandbox.state === "running";
+    $("cloneState").textContent = running ? `sandboxed · network ${(h.network.mode || "off")} · 1440 × 900` : "the sandbox is off";
+    $("popBtn").innerHTML = popped
+      ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 20H4v-6M4 20l8-8M6 10V5h13v13h-5"/></svg>Bring it back'
+      : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-8 8M18 14v5H5V6h5"/></svg>Pop out';
+    const note = $("screenNote");
+    if (!running) {
+      note.hidden = false; shot.hidden = true;
+      note.innerHTML = "<div><b>The sandbox is off.</b>Start it from Home, and its screen appears here.</div>";
+    } else if (popped) {
+      note.hidden = false; shot.hidden = true;
+      note.innerHTML = "<div><b>The clone's screen is in a window of its own.</b>Press Bring it back to have it here again.</div>";
+    } else if (!shot.src) {
+      note.hidden = false; note.innerHTML = "<div>Connecting to the clone's screen…</div>";
+    }
+    if (!running && onClone()) goHome();
+  }
+
+  $("popBtn").onclick = async () => {
+    try {
+      if (state?.sandbox.popped) { await call("screen/dock", {}); toast("The clone's screen is back in this window."); }
+      else { await call("screen/show", {}); toast("The clone's screen is in its own window. Bring it back from here."); }
+    } catch (e) { toast(e.message); }
+    refresh();
+  };
+  $("wheelBtn").onclick = () => {
+    control = !control;
+    $("wheelBtn").setAttribute("aria-pressed", String(control));
+    $("wheelBtn").textContent = control ? "You have control" : "Watching only";
+    toast(control ? "Your clicks and typing go to the clone." : "Watching only — your input stays here.");
+  };
+
+  // Where on the clone's 1440 × 900 a point on the picture is. The picture
+  // is letterboxed to fit, so the bars are subtracted.
+  const toClone = e => {
+    const r = shot.getBoundingClientRect();
+    const scale = Math.min(r.width / 1440, r.height / 900);
+    const x = (e.clientX - r.left - (r.width - 1440 * scale) / 2) / scale;
+    const y = (e.clientY - r.top - (r.height - 900 * scale) / 2) / scale;
+    return x < 0 || y < 0 || x > 1440 || y > 900 ? null : { x: Math.round(x), y: Math.round(y) };
+  };
+  const BTN = ["left", "middle", "right"];
+  // One event at a time, in order. A press and its release are two requests,
+  // the server answers requests in parallel, and a release that overtook its
+  // press was a click that never happened.
+  let inOrder = Promise.resolve(), queued = 0;
+  const send = (route, body) => {
+    if (queued > 40) return inOrder;                  // a stalled host: drop, never pile up
+    queued++;
+    inOrder = inOrder.then(() => call(route, body)).catch(() => {})
+                     .finally(() => { queued--; screenPump.nudge(); });
+    return inOrder;
+  };
+  const mouse = (kind, e, extra = {}) => {
+    const at = toClone(e);
+    if (!control || !at) return Promise.resolve();
+    return send("screen/mouse", { kind, ...at, button: BTN[e.button] || "left", ...extra });
+  };
+  let down = false, lastMove = 0;
+  shot.addEventListener("pointerdown", e => {
+    shot.focus({ preventScroll: true });
+    if (!control) return;
+    e.preventDefault(); down = true; shot.setPointerCapture(e.pointerId);
+    mouse("down", e);
+  });
+  shot.addEventListener("pointermove", e => {
+    // Drags go at about 30 a second; plain hovering at 8 — enough for a
+    // menu to highlight, without flooding the clone with messages.
+    const gap = down ? 33 : 120, now = Date.now();
+    if (now - lastMove < gap) return;
+    lastMove = now; mouse("move", e);
+  });
+  shot.addEventListener("pointerup", e => { if (!down) return; down = false; mouse("up", e); });
+  shot.addEventListener("dblclick", e => { e.preventDefault(); mouse("double", e); });
+  shot.addEventListener("contextmenu", e => e.preventDefault());
+  shot.addEventListener("wheel", e => {
+    if (!control) return;
+    e.preventDefault();
+    mouse("wheel", e, { delta: -Math.sign(e.deltaY) * 120 });
+  }, { passive: false });
+  const NAMED = { Enter: "Return", Backspace: "BackSpace", Tab: "Tab", Escape: "Escape", Delete: "Delete",
+                  ArrowLeft: "Left", ArrowRight: "Right", ArrowUp: "Up", ArrowDown: "Down", Home: "Home",
+                  End: "End", PageUp: "PageUp", PageDown: "PageDown" };
+  shot.addEventListener("keydown", e => {
+    if (!control || e.ctrlKey || e.metaKey || e.altKey) return;      // Alt+← still goes Home
+    const key = NAMED[e.key] ? { name: NAMED[e.key] } : e.key.length === 1 ? { text: e.key } : null;
+    if (!key) return;
+    e.preventDefault();
+    send("screen/key", key);
+  });
+
+  // ── apps ──────────────────────────────────────────────────────────────
+  async function open(app, tile) {
+    if (tile) tile.setAttribute("aria-busy", "true");
+    try {
+      if (!(await ensureRunning())) return;
+      busy("connecting", "Opening", `opening ${tile?.querySelector(".name")?.textContent || "the app"}`);
+      await call("launch", { app });
+      toast(`${tile?.querySelector(".name")?.textContent || "The app"} is opening on the clone's screen.`);
+      setTimeout(showScreen, 1200);
+    } catch (e) { toast(`Could not open it: ${e.message}`); }
+    finally { if (tile) tile.removeAttribute("aria-busy"); setTimeout(idle, 1500); }
+  }
+  document.addEventListener("click", e => {
+    const t = e.target.closest("button[data-app]");
+    if (t) open(t.dataset.app, t.closest(".tile") || t);
+  });
+
+  $("screenBtn").onclick = async () => { if (await ensureRunning()) showScreen(); };
+  $("actScreen").onclick = async () => { if (await ensureRunning()) showScreen(); };
+  $("startBtn").onclick = () => ensureRunning();
+
+  // ── ask — the real chat on the clone's screen ────────────────────────
+  $("askForm").onsubmit = async e => {
+    e.preventDefault();
+    const q = $("askInput").value.trim();
+    if (!q) { $("askInput").focus(); return; }
+    if (asking) return;
+    asking = true; $("askBtn").disabled = true;
+    const out = $("answer");
+    out.hidden = false; out.className = "answer waiting";
+    out.textContent = "Asking… the first answer of the day is the slowest.";
+    try {
+      if (!(await ensureRunning())) { out.textContent = "The sandbox is not running, so there is nobody to ask."; return; }
+      busy("connecting", "Opening", "opening Shishya on the clone's screen");
+      await call("launch", { app: "chat_app.py" });
+      await new Promise(r => setTimeout(r, 2500));          // a moment for the window to appear
+      busy("searching", "Searching", "reading your documents");
+      const sent = await call("ask", { text: q });
+      if (/^Nothing is open/.test(sent.result || "")) throw new Error("Shishya did not open in time — try once more");
+      $("askInput").value = "";
+      busy("solving", "Working it out", `working on: ${q}`);
+      for (let i = 0; i < 80; i++) {
+        await new Promise(r => setTimeout(r, 3000));
+        if (i === 3) busy("composing", "Composing", `working on: ${q}`);
+        const got = await call("answer", {});
+        const text = (got.result || "").trim();
+        if (text && !/^\((no answer|still working)/.test(text)) {
+          out.className = "answer"; out.textContent = text; return;
+        }
+      }
+      out.textContent = "Still working. The answer will appear in Shishya on the clone's screen.";
+    } catch (err) {
+      out.className = "answer"; out.textContent = `Could not ask: ${err.message}`;
+    } finally {
+      asking = false; $("askBtn").disabled = false; idle();
+    }
+  };
+  // "/" jumps to Ask from anywhere but a text field.
+  document.addEventListener("keydown", e => {
+    if (e.defaultPrevented || document.body.classList.contains("on-clone")) return;   // typed to the clone
+    if (e.key === "/" && !/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) { e.preventDefault(); $("askInput").focus(); }
+  });
+
+  // ── who is at the counter ─────────────────────────────────────────────
+  const whoPop = $("whoPop");
+  let chosenRole = null;
+  const openWho = on => {
+    whoPop.classList.toggle("open", on); $("userBtn").setAttribute("aria-expanded", on);
+    if (on) {
+      $("nameInput").value = state?.name || ""; chosenRole = state?.role || "clerk";
+      document.querySelectorAll("#roleGroup [role=radio]").forEach(r => r.setAttribute("aria-checked", String(r.dataset.role === chosenRole)));
+      $("nameInput").focus();
+    }
+  };
+  $("userBtn").onclick = () => openWho(!whoPop.classList.contains("open"));
+  radios($("roleGroup"), r => { chosenRole = r.dataset.role; });
+  $("whoSave").onclick = async () => {
+    try {
+      const name = $("nameInput").value.trim();
+      if (name !== (state?.name || "")) await call("profile/set", { name });
+      if (chosenRole && chosenRole !== state?.role) await call("role", { role: chosenRole });
+      openWho(false); $("userBtn").focus();
+      toast(`${name || "Hello"} — working as ${chosenRole}.`);
+      refresh();
+    } catch (e) { toast(e.message); }
+  };
+
+  // ── radio groups: arrows move, Enter or Space or a click chooses ──────
+  // Deliberately not "scroll to choose": the network wheel in the design
+  // switched modes as it scrolled, and a mouse wheel passing over it could
+  // open the sandbox to the web. Here nothing changes until you choose.
+  function radios(group, choose) {
+    const items = () => [...group.querySelectorAll("[role=radio]")];
+    group.addEventListener("click", e => { const r = e.target.closest("[role=radio]"); if (r) { items().forEach(x => x.setAttribute("aria-checked", String(x === r))); choose(r); } });
+    group.addEventListener("keydown", e => {
+      const all = items(), i = all.indexOf(document.activeElement);
+      if (e.key === "ArrowDown" || e.key === "ArrowRight") { e.preventDefault(); all[(i + 1) % all.length].focus(); }
+      if (e.key === "ArrowUp" || e.key === "ArrowLeft") { e.preventDefault(); all[(i - 1 + all.length) % all.length].focus(); }
+    });
+  }
+
+  // ── popovers above the dock ───────────────────────────────────────────
+  const placeOver = (pop, btn) => {
+    const row = $("dockRow").getBoundingClientRect(), b = btn.getBoundingClientRect();
+    const half = pop.offsetWidth / 2, centre = b.left + b.width / 2;
+    pop.style.left = (Math.min(innerWidth - 16 - half, Math.max(16 + half, centre)) - row.left) + "px";
+  };
+  const pops = { net: [$("netPop"), $("lockBtn")], act: [$("actPop"), $("orbBtn")] };
+  let openPop = null;
+  function closeAll(except) {
+    for (const [k, [p, b]] of Object.entries(pops)) if (k !== except) { p.classList.remove("open"); b.setAttribute("aria-expanded", "false"); }
+    if (except !== "dial") closeDial();
+    if (except !== "who") openWho(false);
+    if (openPop !== except) openPop = null;
+  }
+  function toggle(key) {
+    const [p, b] = pops[key];
+    const on = !p.classList.contains("open");
+    closeAll(key);
+    p.classList.toggle("open", on); b.setAttribute("aria-expanded", String(on));
+    openPop = on ? key : null;
+    // Focus the CURRENT choice, so arrow keys start from where things are.
+    // (One selector with a comma returns the first match in page order —
+    // which was always "Locked", whatever was actually chosen.)
+    if (on) { placeOver(p, b); (p.querySelector("[aria-checked=true]") || p.querySelector("button"))?.focus(); }
+  }
+  $("lockBtn").onclick = () => toggle("net");
+  $("orbBtn").onclick = () => toggle("act");
+
+  radios($("netModes"), async r => {
+    const mode = r.dataset.mode;
+    if (state?.role !== "head") { toast("Only the head changes the network. Switch to head first."); refresh(); return; }
+    if (!(await ensureRunning())) return;
+    try {
+      if (mode === "locked") await call("vm/egress", { locked: true });
+      else if (mode === "browsing") await call("vm/browsing", { on: true });
+      else if (mode === "ssh") await call("ssh", { on: true });
+      toast(mode === "locked" ? "Locked. Only the AI model gets through." :
+            mode === "browsing" ? "Browsing allowed — for the sandbox's browser. Logged." :
+            "SSH allowed, to your saved servers. Logged.");
+    } catch (e) { toast(`Could not change it: ${e.message}`); }
+    closeAll(); $("lockBtn").focus();
+    refresh();
+  });
+
+  // ── CPU and RAM: a sideways dial ──────────────────────────────────────
+  const range = (a, b, s) => Array.from({ length: Math.floor((b - a) / s) + 1 }, (_, i) => a + i * s);
+  const DIALS = {
+    cpu: { title: "CPU limit", note: "The most of this machine's processor the sandbox may use.",
+           values: range(10, 100, 10), fmt: v => v + "%", btn: "cpuBtn", value: 100, unit: "percent" },
+    ram: { title: "RAM limit", note: "The most memory the sandbox may use. The AI model runs outside it.",
+           values: range(2, 16, 1), fmt: v => v + " GB", btn: "ramBtn", value: 8, unit: "gigabytes" }
+  };
+  const dial = $("dial"), track = $("dialTrack");
+  let dialKey = null, settling = false, dt, typed = "", typedAt = 0;
+  const items = () => [...track.querySelectorAll("button")];
+  const nearest = () => {
+    const mid = track.scrollLeft + track.clientWidth / 2;
+    return items().reduce((a, b) => Math.abs(b.offsetLeft + b.offsetWidth / 2 - mid) < Math.abs(a.offsetLeft + a.offsetWidth / 2 - mid) ? b : a);
+  };
+  const paintDial = () => {
+    const mid = track.scrollLeft + track.clientWidth / 2, reach = track.clientWidth / 2, near = nearest();
+    for (const b of items()) {
+      const dist = Math.min(1, Math.abs(b.offsetLeft + b.offsetWidth / 2 - mid) / reach);
+      b.style.opacity = (1 - dist * .8).toFixed(2);
+      b.style.transform = `scale(${(1.15 - dist * .35).toFixed(2)})`;
+      b.classList.toggle("on", b === near);
+    }
+    if (dialKey) { const d = DIALS[dialKey]; track.setAttribute("aria-valuenow", near.dataset.v); track.setAttribute("aria-valuetext", d.fmt(Number(near.dataset.v))); }
+  };
+  const centreOn = (b, smooth) => b && track.scrollTo({ left: b.offsetLeft + b.offsetWidth / 2 - track.clientWidth / 2, behavior: smooth ? "smooth" : "auto" });
+  function closeDial() {
+    dial.classList.remove("open");
+    if (dialKey) $(DIALS[dialKey].btn).setAttribute("aria-expanded", "false");
+    dialKey = null;
+  }
+  function openDial(key) {
+    if (dialKey === key) { closeDial(); return; }
+    closeAll("dial");
+    const d = DIALS[key]; dialKey = key; aim = null;
+    $("dialTitle").textContent = d.title; $("dialNote").textContent = d.note + " Arrow keys, or type a number.";
+    track.setAttribute("aria-valuemin", d.values[0]); track.setAttribute("aria-valuemax", d.values.at(-1));
+    track.innerHTML = '<div class="dpad"></div>' + d.values.map(v => `<button tabindex="-1" data-v="${v}">${d.fmt(v)}</button>`).join("") + '<div class="dpad"></div>';
+    dial.classList.add("open"); placeOver(dial, $(d.btn)); $(d.btn).setAttribute("aria-expanded", "true");
+    settling = true;
+    centreOn(items().find(b => Number(b.dataset.v) === d.value) || items()[0], false);
+    paintDial();
+    setTimeout(() => { settling = false; }, 250);
+    track.focus({ preventScroll: true });
+  }
+  async function commit() {
+    if (!dialKey || settling) return;
+    const d = DIALS[dialKey], v = Number(nearest().dataset.v);
+    if (v === d.value) return;
+    d.value = v; $(dialKey === "cpu" ? "cpuVal" : "ramVal").textContent = d.fmt(v);
+    try {
+      await call("limits", dialKey === "cpu" ? { cpu: v } : { ram: v });
+      toast(`${d.title} set to ${d.fmt(v)}. Logged in Activity.`);
+    } catch (e) { toast(`Could not change it: ${e.message}`); }
+    refresh();
+  }
+  track.addEventListener("scroll", () => { paintDial(); clearTimeout(dt); dt = setTimeout(() => { aim = null; commit(); }, 450); });
+  track.addEventListener("click", e => { const b = e.target.closest("button"); if (b) centreOn(b, true); });
+  track.addEventListener("wheel", e => {
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { track.scrollLeft += e.deltaY; e.preventDefault(); }
+  }, { passive: false });
+  // Where the keyboard is heading. A second key press often lands while the
+  // smooth scroll from the first is still moving; counting from the value
+  // under the notch then repeats a step — two presses gave one.
+  let aim = null;
+  track.addEventListener("keydown", e => {
+    const all = items(), i = aim ?? all.indexOf(nearest());
+    const go = j => {
+      e.preventDefault();
+      aim = Math.max(0, Math.min(all.length - 1, j));
+      centreOn(all[aim], true);
+    };
+    if (e.key === "ArrowRight" || e.key === "ArrowUp") go(i + 1);
+    else if (e.key === "ArrowLeft" || e.key === "ArrowDown") go(i - 1);
+    else if (e.key === "Home") go(0);
+    else if (e.key === "End") go(all.length - 1);
+    else if (e.key === "PageUp") go(i + 3);
+    else if (e.key === "PageDown") go(i - 3);
+    else if (e.key === "Enter") { e.preventDefault(); commit(); closeDial(); $(DIALS[dialKey]?.btn || "cpuBtn").focus(); }
+    else if (/^\d$/.test(e.key)) {
+      // Type a number: "6" then "0" within a second is 60.
+      typed = (Date.now() - typedAt < 1000 ? typed : "") + e.key; typedAt = Date.now();
+      const want = Number(typed), hit = all.find(b => Number(b.dataset.v) === want);
+      if (hit) { e.preventDefault(); centreOn(hit, true); }
+    }
+  });
+  $("cpuBtn").onclick = () => openDial("cpu");
+  $("ramBtn").onclick = () => openDial("ram");
+
+  // ── power ─────────────────────────────────────────────────────────────
+  $("powerBtn").onclick = () => {
+    const p = $("powerPop"); p.hidden = !p.hidden; $("powerBtn").setAttribute("aria-expanded", String(!p.hidden));
+    if (!p.hidden) $("powerNo").focus();
+  };
+  const closePower = () => { $("powerPop").hidden = true; $("powerBtn").setAttribute("aria-expanded", "false"); };
+  $("powerNo").onclick = () => { closePower(); $("powerBtn").focus(); };
+  $("powerYes").onclick = async () => {
+    closePower();
+    busy("connecting", "Stopping", "shutting the sandbox down");
+    try { await call("vm/stop", {}); toast("The sandbox is shut down. Start it again from the top bar."); }
+    catch (e) { toast(`Could not shut it down: ${e.message}`); }
+    idle(); refresh(); $("startBtn").focus();
+  };
+
+  // Outside clicks and Escape close whatever is open, and give focus back.
+  document.addEventListener("click", e => {
+    if (!e.target.closest(".dock-row, #whoPop, #userBtn")) closeAll();
+    if (!e.target.closest("#powerPop, #powerBtn")) closePower();
+  });
+  document.addEventListener("keydown", e => {
+    if (e.key !== "Escape") return;
+    const back = openPop ? pops[openPop]?.[1] : dialKey ? $(DIALS[dialKey].btn) : whoPop.classList.contains("open") ? $("userBtn") : null;
+    closeAll(); closePower(); back?.focus();
+  });
+})();
+</script>
+
+<script type="module">
+import { resolvePreset, MODE_FRAMES, paintFrame } from "./vendor/thinking-orbs/engine.es.js";
+const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const dpr = Math.min(2, devicePixelRatio || 1);
+const canvas = document.getElementById("orbCanvas"), label = document.getElementById("orbLabel");
+const size = 32;
+canvas.width = canvas.height = Math.round(size * dpr);
+const ctx = canvas.getContext("2d");
+let preset = resolvePreset("breathing", size), current = "breathing";
+const draw = now => {
+  const t = still ? 0.6 : now / 1e3 * preset.speed;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, size, size);
+  paintFrame(ctx, MODE_FRAMES[preset.mode](size, t, preset.opts), true);   // light dots on the dark pill
+};
+// Only while the page is visible, and only one frame when motion is reduced.
+const loop = now => { if (document.visibilityState !== "hidden") draw(now); if (!still) requestAnimationFrame(loop); };
+document.addEventListener("shishya:orb", e => {
+  const { state, label: text } = e.detail;
+  if (state !== current) { current = state; preset = resolvePreset(state, size); if (still) draw(0); }
+  label.textContent = text;
+});
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

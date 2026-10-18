@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Shishya Home — Design Guide</title>
+<style>
+  @page { size: A4; margin: 16mm 16mm 18mm; }
+  :root {
+    --ink: #121212; --ink-2: #5F5F5B; --ink-3: #9A9A95; --line: #E4E4DF; --page: #FFFFFF; --soft: #F5F5F2;
+    --accent: #1F9D55; --accent-2: #9BE5AE; --butter: #F8E7B0; --mint: #CDE8E3; --peach: #F9DCCB;
+    --font: "Helvetica Neue", Helvetica, "Arial Nova", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { margin: 0; font-family: var(--font); color: var(--ink); background: var(--page); font-size: 10.5pt; line-height: 1.5; }
+  h1, h2, h3 { letter-spacing: -.01em; line-height: 1.15; margin: 0; text-wrap: balance; }
+  h1 { font-size: 34pt; font-weight: 500; letter-spacing: -.03em; }
+  h2 { font-size: 17pt; font-weight: 600; margin: 0 0 3mm; }
+  h3 { font-size: 11.5pt; font-weight: 700; margin: 5mm 0 1.5mm; }
+  p { margin: 0 0 2.6mm; max-width: 165mm; }
+  ul, ol { margin: 0 0 3mm; padding-left: 5mm; }
+  li { margin-bottom: 1.2mm; }
+  .eyebrow { font-size: 8pt; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2); font-weight: 600; }
+  .section { break-before: page; }
+  .lead { font-size: 12pt; color: var(--ink-2); max-width: 150mm; }
+  figure { margin: 3mm 0 4mm; break-inside: avoid; }
+  figure img { display: block; max-width: 100%; border-radius: 3mm; border: 1px solid var(--line); }
+  figcaption { font-size: 8.5pt; color: var(--ink-2); margin-top: 1.5mm; }
+  code { font-family: Consolas, "Cascadia Mono", monospace; font-size: 9pt; background: var(--soft); padding: .2mm 1.2mm; border-radius: 1mm; }
+  table { width: 100%; border-collapse: collapse; margin: 1mm 0 4mm; font-size: 9.5pt; break-inside: auto; }
+  th { text-align: left; font-size: 8pt; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); font-weight: 600; padding: 1.6mm 2mm; border-bottom: 1.5px solid var(--ink); }
+  td { padding: 1.8mm 2mm; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tr { break-inside: avoid; }
+  .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .improve table { font-size: 8.8pt; }
+  .improve td { padding: 1.3mm 2mm; }
+  .improve ul { columns: 2; column-gap: 8mm; font-size: 9.5pt; }
+
+  /* cover */
+  .cover { height: 262mm; display: flex; flex-direction: column; gap: 8mm; }
+  .cover .meta { margin-top: auto; }
+  .cover .hero { border-radius: 5mm; overflow: hidden; border: 1px solid var(--line); }
+  .cover .hero img { display: block; width: 100%; }
+  .meta { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4mm; font-size: 9pt; color: var(--ink-2); border-top: 1.5px solid var(--ink); padding-top: 3mm; }
+  .meta b { display: block; color: var(--ink); font-size: 10pt; }
+
+  /* palette */
+  .swatches { display: grid; grid-template-columns: repeat(4, 1fr); gap: 3mm; margin: 2mm 0 4mm; }
+  .sw { border: 1px solid var(--line); border-radius: 3mm; overflow: hidden; break-inside: avoid; }
+  .sw i { display: block; height: 16mm; }
+  .sw div { padding: 2mm 2.5mm; font-size: 8.5pt; line-height: 1.35; }
+  .sw b { display: block; font-size: 9.5pt; }
+  .sw code { background: none; padding: 0; font-size: 8.5pt; color: var(--ink-2); }
+
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; align-items: start; }
+  .two > * { min-width: 0; }
+  .note { background: var(--soft); border-radius: 3mm; padding: 3mm 4mm; font-size: 9.5pt; margin: 2mm 0 4mm; break-inside: avoid; }
+  .note b { display: block; margin-bottom: 1mm; }
+  .tag { display: inline-block; font-size: 7.5pt; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; border-radius: 99px; padding: .4mm 2.2mm; vertical-align: 1px; }
+  .t-high { background: var(--peach); } .t-med { background: var(--butter); } .t-low { background: var(--mint); }
+  .type-sample { border: 1px solid var(--line); border-radius: 3mm; padding: 4mm 5mm; margin: 2mm 0 4mm; }
+  .type-sample .big { font-size: 34pt; font-weight: 500; letter-spacing: -.035em; line-height: 1; }
+  .type-sample .big b { font-weight: 700; border-bottom: 3px solid var(--accent-2); }
+</style>
+</head>
+<body>
+
+
+<!-- ─── cover ─── -->
+<section class="cover">
+  <div>
+    <div class="eyebrow">Shishya · शिष्य</div>
+    <h1 style="margin-top:3mm">Home screen<br>design guide</h1>
+    <p class="lead" style="margin-top:4mm">How the new home screen looks and why: the palette, type, layout, every component, how it behaves, and a ranked list of what to improve next.</p>
+  </div>
+  <div class="hero"><img src="home.png" alt="The Shishya home screen"></div>
+  <div class="meta">
+    <div><b>Status</b>Web demo, approved direction. Not yet wired to the app.</div>
+    <div><b>Source</b><code>web/home.html</code>, one file plus <code>web/wallpaper.jpg</code> and <code>web/vendor/</code></div>
+    <div><b>Target</b>The Windows .exe (and the Mac build), light theme only, works offline</div>
+  </div>
+</section>
+
+<!-- ─── 1. the idea ─── -->
+<section class="section">
+  <div class="eyebrow">01</div>
+  <h2>The idea in one line</h2>
+  <p class="lead">A calm, flat desk for a shop owner: one glance shows today's money, what needs attention, and that the AI is working safely on this laptop.</p>
+
+  <h3>Who it is for</h3>
+  <p>The owner of a single-branch pharmacy or shop, at a busy counter, often on an older laptop, sometimes reading in Hindi or Telugu. Every decision below is judged against that person, not against a design award.</p>
+
+  <h3>Five principles</h3>
+  <ol>
+    <li><b>Flat first.</b> Solid shapes, clear edges, no gradients or glow on content. Depth is used only to separate layers: the photo, the frosted panels, and the content on them.</li>
+    <li><b>Pastel marks importance.</b> Butter and mint are not decoration. They mark the two things that matter most in each panel: today's figures and the main apps.</li>
+    <li><b>Numbers are the heroes.</b> Large, tabular figures (₹48,230.50, 1,076) with a one-line explanation under each.</li>
+    <li><b>Trust is visible.</b> The network state, the resource limits and what the AI is doing are always on screen, in the dock. They are controls, not decoration.</li>
+    <li><b>Calm by default.</b> One photo, softly blurred. Motion only where something is happening: the orb, the weather, a hover.</li>
+  </ol>
+
+  <h3>Style decisions already made</h3>
+  <table>
+    <tr><th style="width:32%">Decision</th><th>Why</th></tr>
+    <tr><td>Flat design, not glass, neumorphism or skeuomorphism</td><td>Best contrast and readability at a counter, cheapest to draw while a local AI model is using most of the machine, and matches Windows 11 and macOS.</td></tr>
+    <tr><td>Mica (frosted glass) on the panels and dock only</td><td>Lets the wallpaper show through without hurting text, because the content inside the panels stays solid.</td></tr>
+    <tr><td>Light theme only</td><td>One look to design, test and support. Dark mode was removed on purpose; see the improvements list for when to revisit.</td></tr>
+    <tr><td>A real photo, blurred 6&nbsp;px</td><td>Gives the screen warmth and place; the blur stops it competing with the content.</td></tr>
+    <tr><td>Everything bundled locally</td><td>The app must work with the network switched off. No fonts, libraries or images load from the internet.</td></tr>
+  </table>
+</section>
+
+<!-- ─── 2. colour ─── -->
+<section class="section">
+  <div class="eyebrow">02</div>
+  <h2>Colour</h2>
+  <p>All colours are defined once as tokens at the top of <code>home.html</code> (the <code>:root</code> block). Change a token and every component that uses it follows. Never type a colour directly into a component.</p>
+
+  <h3>Surfaces and text</h3>
+  <div class="swatches">
+    <div class="sw"><i style="background:#F3F3F0"></i><div><b>Page</b><code>--page #F3F3F0</code><br>Behind everything, if the photo fails</div></div>
+    <div class="sw"><i style="background:#FFFFFF"></i><div><b>Card</b><code>--card #FFFFFF</code><br>Icon chips, popovers</div></div>
+    <div class="sw"><i style="background:rgba(250,251,252,.7);background-image:linear-gradient(135deg,#9fb6c4,#d8dfe2)"></i><div><b>Mica</b><code>--mica 250,251,252 @ 70%</code><br>Panels, + 48&nbsp;px blur</div></div>
+    <div class="sw"><i style="background:#1A1A1A"></i><div><b>Orb pill</b><code>#1A1A1A</code><br>Text <code>#A3A3A3</code></div></div>
+    <div class="sw"><i style="background:#121212"></i><div><b>Ink</b><code>--ink #121212</code><br>Headings, numbers, Ask button</div></div>
+    <div class="sw"><i style="background:#6E6E6A"></i><div><b>Ink 2</b><code>--ink-2 #6E6E6A</code><br>Labels, explanations</div></div>
+    <div class="sw"><i style="background:#A3A39E"></i><div><b>Ink 3</b><code>--ink-3 #A3A39E</code><br>Ticks only. Too light for text</div></div>
+    <div class="sw"><i style="background:rgba(0,0,0,.07)"></i><div><b>Line</b><code>--line black @ 7%</code><br>Borders, dividers</div></div>
+  </div>
+
+  <h3>Pastels and meaning</h3>
+  <div class="swatches">
+    <div class="sw"><i style="background:#F8E7B0"></i><div><b>Butter</b><code>--butter #F8E7B0</code><br>The main app, today's takings</div></div>
+    <div class="sw"><i style="background:#CDE8E3"></i><div><b>Mint</b><code>--mint #CDE8E3</code><br>Second priority, selected item</div></div>
+    <div class="sw"><i style="background:#F9DCCB"></i><div><b>Peach</b><code>--peach #F9DCCB</code><br>Warning badges (149 low stock)</div></div>
+    <div class="sw"><i style="background:#9BE5AE"></i><div><b>Green, soft</b><code>--accent-2 #9BE5AE</code><br>Name underline, fills</div></div>
+    <div class="sw"><i style="background:#1F9D55"></i><div><b>Green</b><code>--accent #1F9D55</code><br>On, selected, safe (Locked)</div></div>
+    <div class="sw"><i style="background:#B87800"></i><div><b>Amber</b><code>--warn #B87800</code><br>Network open (Browsing, SSH)</div></div>
+    <div class="sw"><i style="background:#C8321E"></i><div><b>Red</b><code>--bad #C8321E</code><br>Shut down, refused</div></div>
+    <div class="sw"><i style="background:#FFC233"></i><div><b>Sun</b><code>#FFC233 → #FD9D45</code><br>Weather art only</div></div>
+  </div>
+
+  <div class="note"><b>Rules</b>
+    At most one butter and one mint item per panel, or they stop meaning "important".
+    Green, amber and red are reserved for state (safe, open, danger) and never used for decoration.
+    Text on pastels is always Ink or Ink 2, never white.</div>
+</section>
+
+<!-- ─── 3. type & layout ─── -->
+<section class="section">
+  <div class="eyebrow">03</div>
+  <h2>Type and layout</h2>
+
+  <h3>Typeface</h3>
+  <p>Helvetica Neue, falling back to Helvetica, Arial Nova, then Arial. On Windows this usually renders as Arial, which is close enough at these sizes. One family throughout; hierarchy comes from size and weight.</p>
+  <div class="type-sample"><div class="big">Hello, <b>Ravi</b></div></div>
+
+  <table>
+    <tr><th>Role</th><th>Size</th><th>Weight</th><th>Notes</th></tr>
+    <tr><td>Greeting</td><td class="num">36–60 px (scales)</td><td>500, name 700</td><td>Letter-spacing −0.035em; name underlined 3 px soft green</td></tr>
+    <tr><td>Big figures</td><td class="num">28 px</td><td>500</td><td>Tabular numbers so digits line up</td></tr>
+    <tr><td>Line of the day</td><td class="num">18 px</td><td>400</td><td>Ten lines rotate, one per day</td></tr>
+    <tr><td>Body, tile names</td><td class="num">14.5–15 px</td><td>600 names</td><td>Tile names bold, descriptions regular</td></tr>
+    <tr><td>Orb pill text</td><td class="num">15 px</td><td>500</td><td>Grey #A3A3A3 on dark, four dots: "Thinking...."</td></tr>
+    <tr><td>Labels (eyebrows)</td><td class="num">11.5–13 px</td><td>600</td><td>Uppercase, letter-spacing 0.04–0.08em</td></tr>
+  </table>
+
+  <h3>Layout</h3>
+  <ul>
+    <li><b>Two panels</b> side by side, widths 1 : 1.15, max 1280 px wide, 24 px gap and gutters.</li>
+    <li><b>App grid:</b> 4 columns, 104 px rows, 10 px gaps, packed densely so no holes appear. Wide tiles span 2 columns; Findings spans 2 rows.</li>
+    <li><b>Dock:</b> fixed, centred at the bottom, with the orb pill 10 px above it. Power button alone at top right.</li>
+    <li><b>Under 900 px wide</b> the panels stack and the grid drops to 2 columns.</li>
+  </ul>
+  <table>
+    <tr><th>Shape</th><th>Corner radius</th></tr>
+    <tr><td>Panels (greeting, apps)</td><td class="num">24 px</td></tr>
+    <tr><td>App tiles</td><td class="num">16 px</td></tr>
+    <tr><td>Figure cards</td><td class="num">14 px</td></tr>
+    <tr><td>Icon chips</td><td class="num">10 px</td></tr>
+    <tr><td>Dock, pills, buttons, input</td><td class="num">fully round</td></tr>
+  </table>
+</section>
+
+<!-- ─── 4. components ─── -->
+<section class="section">
+  <div class="eyebrow">04</div>
+  <h2>Components</h2>
+
+  <div class="two">
+    <figure><img src="greeting.png" alt="Greeting card"><figcaption>Greeting card</figcaption></figure>
+    <div>
+      <h3 style="margin-top:0">Greeting card</h3>
+      <ul>
+        <li><b>Date</b> as an uppercase eyebrow.</li>
+        <li><b>"Hello, Ravi"</b>. Click the name to switch user (owner Ravi, clerk Priya). In the app this comes from the login.</li>
+        <li><b>Weather art</b>: a drawn sun with slowly turning rays and a cloud. Clear, Cloudy, Rain and Snow each change the art, and rain or snow also falls gently across the screen.</li>
+        <li><b>Line of the day</b>: ten friendly prompts, one per day of the year.</li>
+        <li><b>Two figure cards</b>, butter then mint: today's takings and bills today, each with a one-line explanation.</li>
+        <li><b>Ask box</b>: a round input with a black Ask button. Asking starts the orb's searching → solving → composing run.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="two">
+    <figure><img src="apps.png" alt="Apps panel"><figcaption>Apps panel</figcaption></figure>
+    <div>
+      <h3 style="margin-top:0">Apps panel</h3>
+      <ul>
+        <li>13 tiles: icon chip, bold name, one-line status that says something live ("3 files waiting", "Audit at 18:00").</li>
+        <li><b>Shishya</b> (butter, wide) is the front door. <b>Make a Document</b> (mint, wide) is the second.</li>
+        <li><b>Findings</b> is tall because it carries two facts.</li>
+        <li>Badges: black for counts, peach for warnings.</li>
+        <li>Hover lifts a tile 2 px; press shrinks it slightly.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="section">
+  <div class="eyebrow">04 · continued</div>
+  <h2>The dock and the orb</h2>
+  <figure><img src="dock.png" alt="Orb pill and dock" style="max-width:110mm"><figcaption>Orb pill above the dock</figcaption></figure>
+
+  <table>
+    <tr><th style="width:24%">Part</th><th>What it does</th><th style="width:30%">In the real app</th></tr>
+    <tr><td><b>Orb pill</b></td><td>Dark capsule with a 32 px animated dot orb and the current verb. Click it to see all nine states: Working, Searching, Solving, Listening, Connecting, Weaving, Composing, Thinking (idle), Shaping.</td><td>Follows what the AI is actually doing.</td></tr>
+    <tr><td><b>CPU limit</b></td><td>Opens a sideways dial, 10–100% in steps of 10. The chosen number sits in the centre in green; numbers fade with distance. Scroll, drag, click or use arrow keys.</td><td>Caps the sandbox's processor use (Windows job object).</td></tr>
+    <tr><td><b>RAM limit</b></td><td>The same dial, 2–16 GB. Notes that the AI model needs about 7 GB.</td><td>Caps the sandbox's memory.</td></tr>
+    <tr><td><b>Network</b></td><td>A Wi-Fi icon: green when locked, amber when open. Opens a vertical wheel: Locked, Browsing, SSH.</td><td>Starts sandboxed apps with or without network permission. Every change is logged.</td></tr>
+    <tr><td><b>Clock</b></td><td>Time and short date.</td><td>Same.</td></tr>
+    <tr><td><b>Power</b> (top right)</td><td>Asks before shutting down, in the page itself.</td><td>Stops the sandbox.</td></tr>
+  </table>
+
+  <h3>Motion</h3>
+  <ul>
+    <li>Orb: always moving gently; speed comes from the library's tuned presets.</li>
+    <li>Sun rays turn once every 40 seconds. Rain and snow are drawn on one canvas.</li>
+    <li>Popovers fade and rise 8 px over 0.2 s. Tiles lift on hover.</li>
+    <li>With "reduce motion" switched on in Windows, all of this stops and the orb shows a still frame.</li>
+  </ul>
+
+  <h3>Wallpaper</h3>
+  <p>An alpine valley photo at dawn, saved as <code>web/wallpaper.jpg</code> (2000 × 1125, 159 KB), blurred 6 px and scaled 4% so the blur's soft edge never shows.</p>
+</section>
+
+<!-- ─── 5. build ─── -->
+<section class="section">
+  <div class="eyebrow">05</div>
+  <h2>How it is built</h2>
+  <table>
+    <tr><th style="width:38%">File</th><th>What it is</th></tr>
+    <tr><td><code>web/home.html</code></td><td>The whole screen: tokens, styles, markup and script in one file. No build step.</td></tr>
+    <tr><td><code>web/wallpaper.jpg</code></td><td>The background photo.</td></tr>
+    <tr><td><code>web/vendor/thinking-orbs/</code></td><td>The orb drawing engine from Libraries.dev, v0.3.2, MIT licence. Only the framework-free engine is included, so no React is needed.</td></tr>
+    <tr><td><code>docs/design/</code></td><td>This guide's source and its images.</td></tr>
+  </table>
+
+  <h3>How to change things safely</h3>
+  <ul>
+    <li><b>A colour:</b> edit the token in the <code>:root</code> block. Do not add new colours inside components.</li>
+    <li><b>A tile:</b> copy an existing <code>&lt;button class="tile"&gt;</code>. Add <code>wide</code> or <code>tall</code> to change its size. Keep the total so the grid fills without holes.</li>
+    <li><b>The wallpaper:</b> replace <code>wallpaper.jpg</code> with any landscape photo about 2000 px wide and under 300 KB. Darker photos need a stronger Mica (raise the 70% in <code>--mica</code>).</li>
+    <li><b>The orb's states:</b> the labels live in the <code>LABEL</code> list in the last script block.</li>
+    <li><b>The dial ranges:</b> in the <code>DIALS</code> list (CPU 10–100 by 10, RAM 2–16 by 1).</li>
+    <li><b>The daily lines:</b> in the <code>LINES</code> list (ten lines).</li>
+  </ul>
+
+  <div class="note"><b>Still demo-only</b>
+    Takings, bills, tile statuses, weather, CPU and RAM values and the network switch are sample data. Clicking a tile only shows a message. Wiring each one to the real app is the next engineering step.</div>
+</section>
+
+<!-- ─── 6. improvements ─── -->
+<section class="section improve">
+  <div class="eyebrow">06</div>
+  <h2>What to improve next</h2>
+  <p>Ranked by how much each matters to a shop owner at the counter. <span class="tag t-high">High</span> before the December submission, <span class="tag t-med">Medium</span> if there is time, <span class="tag t-low">Later</span> after.</p>
+
+  <table>
+    <tr><th style="width:12%">Priority</th><th style="width:30%">Issue</th><th>Suggested fix</th></tr>
+    <tr><td><span class="tag t-high">High</span></td><td>Hindi and Telugu text may show as boxes</td><td>Helvetica and Arial have no Devanagari or Telugu letters. Bundle Noto Sans Devanagari and Noto Sans Telugu in <code>web/fonts/</code> and add them to the font stack.</td></tr>
+    <tr><td><span class="tag t-high">High</span></td><td>Weather needs the internet, but the sandbox is offline</td><td>Fetch it on the host side only (outside the sandbox), cache it, and fall back to a time-of-day sun or moon when offline. Never let the sandbox fetch it.</td></tr>
+    <tr><td><span class="tag t-high">High</span></td><td>Lower part of the panels turns grey over the dark mountains</td><td>Add a light gradient inside the Mica panels (more white towards the bottom) or raise <code>--mica</code> to 78%.</td></tr>
+    <tr><td><span class="tag t-high">High</span></td><td>Blur and frosted glass can be slow on old laptops</td><td>Save a pre-blurred copy of the wallpaper instead of blurring live, and fall back to solid panels when Windows "transparency effects" are off.</td></tr>
+    <tr><td><span class="tag t-med">Medium</span></td><td>Empty space in the greeting card between the name and the line of the day</td><td>Tighten the gap, or use it for "next up" (the 18:00 audit, approvals waiting).</td></tr>
+    <tr><td><span class="tag t-med">Medium</span></td><td>Findings tile has empty space at the top</td><td>Add a tiny bar chart of low-stock items by category.</td></tr>
+    <tr><td><span class="tag t-med">Medium</span></td><td>Dock labels are small (11.5 px)</td><td>Raise to 12.5–13 px; the counter is read from arm's length.</td></tr>
+    <tr><td><span class="tag t-med">Medium</span></td><td>Orb pill and dock are two separate pieces</td><td>Try joining them into one bar, or slide the pill out of the dock only while the AI works.</td></tr>
+    <tr><td><span class="tag t-med">Medium</span></td><td>The dials only accept dragging and clicking</td><td>Let people type a number too, and show the current usage next to the limit.</td></tr>
+    <tr><td><span class="tag t-med">Medium</span></td><td>Tiles look clickable but do nothing yet</td><td>Wire each to its app and show a loading state on the orb while it opens.</td></tr>
+    <tr><td><span class="tag t-low">Later</span></td><td>No dark theme</td><td>Revisit only if owners use it at night. Design it fresh rather than inverting colours.</td></tr>
+    <tr><td><span class="tag t-low">Later</span></td><td>One wallpaper</td><td>Offer three or four, plus a plain colour for video calls (moving or busy backgrounds blur on screen-share).</td></tr>
+    <tr><td><span class="tag t-low">Later</span></td><td>Phone layout only lightly checked</td><td>Test at 400 px wide; the dock needs a two-row version.</td></tr>
+    <tr><td><span class="tag t-low">Later</span></td><td>Keyboard shortcuts</td><td>For example <code>/</code> to jump to Ask, <code>L</code> for the network lock.</td></tr>
+  </table>
+
+  <h3>Checklist before every change ships</h3>
+  <ul>
+    <li>Readable from arm's length, on the darkest part of the wallpaper.</li>
+    <li>Uses existing tokens only; no new colours.</li>
+    <li>Works with the network off.</li>
+    <li>Works with "reduce motion" on.</li>
+    <li>Checked at 1280 × 800 and 1920 × 1080, and on the Mac.</li>
+    <li>Every control reachable with the keyboard, with a visible focus ring.</li>
+  </ul>
+</section>
+
+</body>
+</html>

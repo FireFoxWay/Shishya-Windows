@@ -1,0 +1,753 @@
+/* ============================================================================
+   SHISHYA — control panel
+   ============================================================================
+
+   Swiss-technical, after the reference: a cool grey ground, pure black
+   hairlines, wireframe marks, and a great deal of air. No rounded corners
+   worth the name and no colour at all.
+
+   Two decisions follow from "no colour", and both are load-bearing:
+
+   Emphasis is inversion. A selected control is a solid black block with white
+   type — the strongest signal available once the palette is gone, and it
+   reads harder than any accent would.
+
+   Refusals in the ledger are therefore black blocks rather than red rows. The
+   audit trail is the most important thing on this panel, so it gets the
+   strongest treatment the language allows.
+
+   Every class name here already existed. This changes how the panel looks and
+   nothing about how it works.
+   ========================================================================== */
+
+@import url("https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap");
+
+:root {
+  color-scheme: light;
+
+  /* The ground is a gradient, not a flat fill — it is what gives the
+     reference its depth without a single shadow. */
+  --sky-1:  #DCDEE1;
+  --sky-2:  #C6C9CE;
+  --paper:  #E8E9EB;
+  --card:   rgba(255,255,255,.42);
+
+  --ink:    #0B0C0E;
+  --ink-2:  #3A3D42;
+  /* Measured against the darker end of the ground, not guessed. The old
+     values were 1.96:1 and 1.35:1 — every section label, the ledger's
+     captions and the corner marks were not subtle, they were unreadable.
+     Quiet is a contrast ratio you can defend; these clear 3:1 and 4.5:1
+     at the bottom of the gradient, where the panel is darkest. */
+  --ink-3:  #4E545C;
+  --ink-4:  #5F656D;
+
+  --line:   rgba(11,12,14,.22);
+  --line-2: rgba(11,12,14,.10);
+
+  --ui:   "Archivo", -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --sky-1:  #1A1C1F;
+    --sky-2:  #0C0D0F;
+    --paper:  #141618;
+    --card:   rgba(255,255,255,.05);
+    --ink:    #F2F3F5;
+    --ink-2:  #C6CAD0;
+    --ink-3:  #8B919A;
+    --ink-4:  #767C84;
+    --line:   rgba(242,243,245,.24);
+    --line-2: rgba(242,243,245,.11);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --sky-1: #1A1C1F; --sky-2: #0C0D0F; --paper: #141618;
+  --card: rgba(255,255,255,.05);
+  --ink: #F2F3F5; --ink-2: #C6CAD0; --ink-3: #8B919A; --ink-4: #767C84;
+  --line: rgba(242,243,245,.24); --line-2: rgba(242,243,245,.11);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* Selecting text inverts it — the same move as every hover on the panel. */
+::selection { background: var(--ink); color: var(--paper); }
+input, textarea { caret-color: var(--ink); }
+
+body {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(170deg, var(--sky-1) 0%, var(--sky-2) 100%);
+  color: var(--ink);
+  font-family: var(--ui);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+  letter-spacing: -.005em;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/* ─── header ────────────────────────────────────────────────────────────── */
+/* Corner metadata, as in the reference: identity hard left, state hard
+   right, a rule beneath. Nothing floats in the middle. */
+
+#topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 0 26px;
+  height: 58px;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+/* A filled square, not a dot. Circles are friendly; this is an instrument. */
+.mark { width: 9px; height: 9px; background: var(--ink); flex-shrink: 0; }
+.bName {
+  font-size: 15px; font-weight: 700;
+  letter-spacing: .04em; text-transform: uppercase;
+}
+.bTag {
+  font-size: 10.5px; font-weight: 500; color: var(--ink-3);
+  letter-spacing: .06em; text-transform: uppercase;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+.topRight { display: flex; align-items: flex-end; gap: 26px; }
+
+/* Label above, value below — a readout, not a badge. */
+.kv { display: flex; flex-direction: column; gap: 1px; align-items: flex-start;
+      min-width: 62px; /* Running → Stopped must not shove the row about */ }
+.kv span {
+  font-size: 9px; font-weight: 500; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--ink-4);
+}
+.kv b {
+  font-size: 12px; font-weight: 600; letter-spacing: .02em;
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+/* State is carried by weight, a rule underneath, and a square — filled when
+   the guard holds, hollow when it does not. Never by hue: a square survives
+   a bad projector, and reads at a glance from across a demo table. */
+.kv b::before {
+  content: ""; display: inline-block;
+  width: 7px; height: 7px; margin-right: 6px;
+  background: var(--ink);
+  vertical-align: 1px;
+}
+.ok, .locked { border-bottom: 2px solid var(--ink); }
+.no          { border-bottom: 2px solid var(--ink); opacity: .45; }
+.open        { border-bottom: 2px dashed var(--ink); }
+.kv b.open::before, .kv b.no::before {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--ink);
+}
+
+/* ─── theme switch ──────────────────────────────────────────────────────── */
+/* Three states, not two. "Auto" follows the machine, which is what most
+   people want and what the stylesheet already did before there was a button. */
+
+.themeSwap {
+  appearance: none;
+  font-family: inherit;
+  font-size: 9px; font-weight: 500;
+  letter-spacing: .14em; text-transform: uppercase;
+  color: var(--ink-3);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  padding: 5px 9px;
+  cursor: pointer;
+  align-self: center;
+}
+.themeSwap:hover { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.themeSwap:focus-visible { outline: 1px solid var(--ink); outline-offset: 2px; }
+
+/* ─── layout ────────────────────────────────────────────────────────────── */
+
+#stage { flex: 1; display: flex; min-height: 0; }
+.pane { display: flex; flex-direction: column; min-height: 0; }
+.pane.grow { flex: 1; padding: 26px; }
+.pane.col {
+  width: 396px; flex-shrink: 0;
+  border-left: 1px solid var(--line);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: 44px;
+  counter-reset: section;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+
+/* ─── section labels ────────────────────────────────────────────────────── */
+/* Small, grey, letterspaced, and given room — "Forms", "Tools", "Lightning". */
+
+.paneHead {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 10px;
+  margin: 30px 22px 0;
+  padding: 14px 0 12px;
+  border-top: 1px solid var(--line-2);
+  font-size: 9.5px; font-weight: 500;
+  letter-spacing: .16em; text-transform: uppercase;
+  color: var(--ink-4);
+}
+/* Numbered like the handbook's sections — the index is what makes nine
+   sections in one column navigable at a glance, and it costs no markup. */
+.pane.col .paneHead > span:first-child::before {
+  counter-increment: section;
+  content: "0" counter(section) "  ";
+  font-family: var(--mono);
+  font-size: 8.5px;
+  color: var(--ink-4);
+  letter-spacing: .08em;
+}
+/* The first section sits under the header's own rule; a second rule there
+   would read as a mistake. */
+.pane.col .paneHead:first-child { margin-top: 4px; border-top: none; }
+.pane.grow .paneHead { margin: 0; border-top: none; padding: 26px 22px 10px;
+
+  padding: 0 0 16px;
+  align-items: center;
+}
+
+/* ─── the clone's screen ────────────────────────────────────────────────── */
+
+.screen {
+  position: relative; flex: 1;
+  background: #000;
+  border: 1px solid var(--ink);
+  overflow: hidden;
+}
+.screen iframe { width: 100%; height: 100%; border: 0; display: block; }
+/* Windows: the clone's screen as a picture of its window, letterboxed like
+   noVNC's resize=scale so its 1440x900 is never stretched. */
+.screen #cloneScreen { width: 100%; height: 100%; display: block; object-fit: contain;
+                       background: #0b0c0e; outline: none; cursor: default; user-select: none; }
+.screen #cloneScreen:focus { box-shadow: inset 0 0 0 2px var(--accent, #0078d4); }
+/* Corner ticks, as on a viewfinder. Drawn over the frame, never the page. */
+.screen::after {
+  content: ""; position: absolute; inset: 6px;
+  pointer-events: none;
+  --tick: var(--ink-3);
+  background:
+    linear-gradient(var(--tick), var(--tick)) 0 0     / 12px 1px,
+    linear-gradient(var(--tick), var(--tick)) 0 0     / 1px 12px,
+    linear-gradient(var(--tick), var(--tick)) 100% 0  / 12px 1px,
+    linear-gradient(var(--tick), var(--tick)) 100% 0  / 1px 12px,
+    linear-gradient(var(--tick), var(--tick)) 0 100%    / 12px 1px,
+    linear-gradient(var(--tick), var(--tick)) 0 100%    / 1px 12px,
+    linear-gradient(var(--tick), var(--tick)) 100% 100% / 12px 1px,
+    linear-gradient(var(--tick), var(--tick)) 100% 100% / 1px 12px;
+  background-repeat: no-repeat;
+  opacity: .8;
+}
+.msg {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  background: var(--paper); color: var(--ink-3);
+  font-size: 10px; letter-spacing: .16em; text-transform: uppercase;
+}
+
+/* ─── controls ──────────────────────────────────────────────────────────── */
+/* Hairline outline at rest; solid black on hover and when active. The whole
+   interaction model is one inversion. */
+
+.tools, .controls {
+  display: flex; flex-wrap: wrap; gap: 7px;
+  padding: 0 22px 16px;
+}
+.pane.grow .tools { padding: 0; gap: 8px; }
+
+.tool {
+  appearance: none;
+  display: inline-flex; align-items: center;
+  min-height: 30px;
+  font-family: inherit;
+  font-size: 10px; font-weight: 500;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: var(--ink);
+  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 0;
+  padding: 0 12px;
+  cursor: pointer;
+  transition: background .1s linear, color .1s linear, border-color .1s linear;
+  white-space: nowrap;
+}
+.tool:hover:not(:disabled) {
+  background: var(--ink); color: var(--paper); border-color: var(--ink);
+}
+/* A press moves — one pixel, the way a real key does. Opacity reads as a
+   rendering glitch; displacement reads as a mechanism. */
+.tool:active:not(:disabled) { transform: translateY(1px); }
+.tool:disabled { opacity: .28; cursor: default; }
+.tool:focus-visible { outline: 1px solid var(--ink); outline-offset: 2px; }
+
+.tool.ghost { color: var(--ink-3); border-color: var(--line-2); }
+.tool.ghost:hover:not(:disabled) { background: var(--ink); color: var(--paper); }
+
+/* Destructive and cautionary cannot be red here, so they are marked instead:
+   a heavier rule beneath, and a dashed one for the reversible pair. */
+.tool.danger  { border-bottom-width: 3px; border-bottom-color: var(--ink); }
+.tool.warnish { border-bottom-style: dashed; border-bottom-width: 2px; border-bottom-color: var(--ink); }
+
+/* The one already-on control: inverted, as the reference marks its selection. */
+.wheel {
+  appearance: none;
+  font-family: inherit; font-size: 10px; font-weight: 600;
+  letter-spacing: .1em; text-transform: uppercase;
+  color: var(--paper); background: var(--ink);
+  border: 1px solid var(--ink); border-radius: 0;
+  padding: 8px 14px; cursor: pointer;
+}
+.wheel:hover { opacity: .84; }
+.wheel.on { background: var(--ink); }
+
+/* ─── ledger ────────────────────────────────────────────────────────────── */
+
+.ledger:empty::before {
+  content: "every action, and every refusal, lands here";
+  display: block; padding: 18px 0;
+  font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+  color: var(--ink-4);
+}
+.ledger {
+  margin: 0 22px 6px;
+  border-top: 1px solid var(--line);
+  /* The sidebar is a flex column, so without these the ledger — which has
+     content but no intrinsic height its parent respects — collapses to zero
+     and shows ninety-four entries as blank space. It rendered correctly and
+     was simply invisible. */
+  flex: 0 0 auto;
+  min-height: 132px;
+  max-height: 208px;
+  overflow: hidden auto;
+}
+.entry {
+  display: grid;
+  grid-template-columns: 46px 40px 64px 1fr;
+  gap: 9px; align-items: baseline;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--line-2);
+  font-size: 11px;
+}
+/* The column captions, pinned. An audit trail without a time axis is a
+   list; with one it is a record. */
+.entry.head {
+  position: sticky; top: 0; z-index: 1;
+  background: var(--paper);
+  padding: 5px 0 4px;
+  font-size: 8px; font-weight: 500; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--ink-4);
+  border-bottom: 1px solid var(--line);
+}
+.entry .tm {
+  font-family: var(--mono); font-size: 9.5px;
+  color: var(--ink-4);
+  font-variant-numeric: tabular-nums;
+}
+.entry.no .tm { color: var(--paper); opacity: .7; }
+.entry .v {
+  font-size: 8.5px; font-weight: 600; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--ink-4);
+}
+.entry .a { color: var(--ink-3); font-family: var(--mono); font-size: 10px; }
+.entry .t { color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.entry.ok .v { color: var(--ink-2); }
+
+/* A refusal is the most important line this panel can show, and with the
+   palette gone the strongest thing available is to invert it. */
+.entry.no {
+  background: var(--ink);
+  padding-left: 8px; padding-right: 8px;
+  margin: 2px -8px;
+}
+.entry.no .v, .entry.no .a, .entry.no .t { color: var(--paper); }
+
+/* ─── ask ───────────────────────────────────────────────────────────────── */
+/* A rule you type on, in the reference's own manner. */
+
+.askRow { display: flex; gap: 10px; padding: 0 22px 14px; align-items: flex-end; }
+.askRow input {
+  flex: 1; min-width: 0;
+  font-family: inherit; font-size: 12px; font-weight: 500;
+  color: var(--ink);
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid var(--ink);
+  border-radius: 0;
+  padding: 6px 2px;
+}
+.askRow input::placeholder { color: var(--ink-4); }
+.askRow input:focus { outline: none; border-bottom-width: 2px; }
+
+.answer {
+  margin: 0 22px 14px;
+  padding: 12px 14px;
+  background: var(--card);
+  border: 1px solid var(--line-2);
+  font-size: 12px; line-height: 1.55;
+  color: var(--ink-2);
+  /* Same trap the ledger fell into: a flex child in this column has content
+     but no intrinsic height its parent respects, so a full sidebar squeezes
+     it to nothing. A seventeen-step plan rendered all seventeen rows into
+     twenty-six pixels — correct, and invisible, which is the worst pair. */
+  flex: 0 0 auto;
+  min-height: 64px; max-height: 210px; overflow-y: auto;
+  white-space: pre-wrap;
+}
+.answer.waiting { color: var(--ink-3); font-style: italic; }
+
+/* A produced file is a control, not a hyperlink. Default link blue is the
+   one hue that survived the palette being removed, and it read as a mistake
+   sitting under a job's own summary. This is the same inversion as a button,
+   with the rule underneath standing in for the arrow's affordance. */
+.answer a {
+  display: inline-block;
+  margin-top: 2px;
+  font-family: var(--mono); font-size: 11px;
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 1px solid var(--ink);
+  padding: 2px 3px;
+}
+.answer a:hover { background: var(--ink); color: var(--paper); }
+.answer a:focus-visible { outline: 1px solid var(--ink); outline-offset: 2px; }
+
+/* ─── lessons ───────────────────────────────────────────────────────────── */
+/* The plan is the honest part of this feature: eight of seventeen steps are
+   performable, and the panel says so before a key is pressed. A step it will
+   not attempt is inverted — the same treatment the ledger gives a refusal,
+   because it is the same thing. */
+
+.pick {
+  flex: 1; min-width: 0;
+  appearance: none;
+  font-family: inherit; font-size: 11px; font-weight: 500;
+  color: var(--ink);
+  background: transparent;
+  border: 0; border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  padding: 6px 2px;
+}
+.pick:focus { outline: none; border-bottom-width: 2px; }
+.pick:disabled { opacity: .35; }
+
+.plan { font-family: var(--mono); font-size: 11px; line-height: 1.45; }
+.plan .planHead {
+  font-size: 9px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--ink-3);
+  padding-bottom: 7px; margin-bottom: 6px;
+  border-bottom: 1px solid var(--line-2);
+}
+.plan .step { display: flex; gap: 9px; padding: 2px 0; }
+.plan .step .n { color: var(--ink-3); min-width: 20px; text-align: right; flex-shrink: 0; }
+.plan .step .s { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+
+/* Skipped: stated, but quiet. It happened, it is in the ledger, and it is
+   not the thing anyone needs to look at. */
+.plan .step.skip { color: var(--ink-4); }
+.plan .step.skip .n { color: var(--ink-4); }
+
+/* Inverted, not coloured — it survives being projected badly or printed.
+   Reserved for the step that stopped the work, and for a plan's "will not
+   attempt", where the whole point is to be counted before pressing Run. */
+.plan .step.cannot {
+  background: var(--ink); color: var(--paper);
+  padding: 3px 6px; margin: 2px -6px;
+}
+.plan .step.cannot .n { color: var(--paper); opacity: .55; }
+
+/* ─── terminal ──────────────────────────────────────────────────────────── */
+
+.term {
+  margin: 0 22px 10px;
+  padding: 12px 14px;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--mono);
+  font-size: 11px; line-height: 1.55;
+  /* Grows with what has been run instead of clipping three lines into a
+     letterbox — it was the most cramped thing on the panel. */
+  min-height: 170px; max-height: 300px; overflow-y: auto;
+  white-space: pre-wrap; word-break: break-word;
+}
+.term:empty::before {
+  content: "ls  ·  df -h  ·  ps aux  ·  cat /etc/hosts";
+  opacity: .35;
+}
+.term .cmd { opacity: .55; }
+.term .cmd::before { content: "$ "; }
+/* Failure is marked by a rule rather than a colour, like everything else. */
+.term .bad { border-left: 2px solid var(--paper); padding-left: 7px; display: block; }
+
+/* ─── drop zone ─────────────────────────────────────────────────────────── */
+
+.muted { font-size: 9px; font-weight: 500; letter-spacing: .12em;
+         text-transform: uppercase; color: var(--ink-4); }
+
+.drop {
+  margin: 0 22px 12px;
+  padding: 26px 12px;
+  border: 1px dashed var(--line);
+  text-align: center;
+  color: var(--ink-3);
+  cursor: pointer;
+  transition: background .1s linear, border-color .1s linear;
+}
+.drop span {
+  display: block; font-size: 10px; font-weight: 500;
+  letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2);
+}
+.drop em {
+  display: block; font-style: normal; font-size: 10px;
+  margin-top: 5px; color: var(--ink-4); letter-spacing: .02em; text-transform: none;
+}
+.drop:hover { border-color: var(--ink); }
+/* The whole window takes a drop, so the cue is a full inversion — a file
+   landing an inch wide should never look like a broken feature. */
+.drop.over { background: var(--ink); border-color: var(--ink); border-style: solid; }
+.drop.over span, .drop.over em { color: var(--paper); }
+.drop.busy { border-style: solid; border-color: var(--ink); }
+
+/* ─── log ───────────────────────────────────────────────────────────────── */
+
+.log {
+  margin: 0 22px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line-2);
+  max-height: 150px; overflow-y: auto;
+}
+.logLine {
+  font-family: var(--mono);
+  font-size: 10px; color: var(--ink-3);
+  padding: 1.5px 0;
+  font-variant-numeric: tabular-nums;
+}
+.logLine.ok { color: var(--ink); }
+.logLine.no { color: var(--ink); font-weight: 500; text-decoration: underline; }
+
+/* ─── corner marks ──────────────────────────────────────────────────────── */
+/* The date and the sequence number in the reference are what make it read as
+   an instrument rather than a page. Injected by CSS so the markup stays
+   about the machine, not the decoration. */
+
+#stage::after {
+  content: "SHISHYA · LOCAL";
+  position: fixed; right: 416px; bottom: 14px;
+  font-size: 8.5px; letter-spacing: .2em; color: var(--ink-4);
+  pointer-events: none;
+}
+#stage::before {
+  content: "1440 × 900 · SANDBOXED";
+  position: fixed; left: 26px; bottom: 14px;
+  font-size: 8.5px; letter-spacing: .2em; color: var(--ink-4);
+  pointer-events: none;
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line); }
+::-webkit-scrollbar-thumb:hover { background: var(--ink-3); }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+@media (max-width: 900px) {
+  #stage { flex-direction: column; }
+  .pane.col { width: auto; border-left: none; border-top: 1px solid var(--line); }
+  #stage::after, #stage::before { display: none; }
+}
+
+/* ─── the dashboard ───────────────────────────────────────────────────────
+   Same pane as the clone's screen, one or the other showing. Monochrome like
+   everything else here: emphasis is inversion and weight, never colour, so a
+   chart cannot say anything the rest of the panel cannot. */
+
+/* A sibling of .screen, not a child of it: exactly one of the two is in the
+   layout at a time. The first version laid the board over the screen with
+   position:absolute — and .screen is a sibling rather than an ancestor, so
+   "inset: 0" resolved against the viewport and the cards landed across the
+   whole window with the clone's wallpaper showing through them. */
+.board {
+  flex: 1; min-height: 0; display: flex;
+  border: 1px solid var(--ink); background: var(--paper);
+}
+/* The rail. Numbered rather than iconographic: an icon set invented for six
+   screens teaches nobody anything, and the number is also the keyboard hint. */
+.rail {
+  width: 52px; flex-shrink: 0;
+  border-right: 1px solid var(--line);
+  display: flex; flex-direction: column; gap: 4px; padding: 10px 8px;
+}
+.rail button {
+  appearance: none; font-family: inherit; cursor: pointer;
+  height: 36px; border: 1px solid var(--line); background: transparent;
+  color: var(--ink-3); border-radius: 0;
+  font-size: 9px; letter-spacing: .08em; text-transform: uppercase;
+  display: flex; align-items: center; justify-content: center;
+}
+.rail button:hover { color: var(--ink); border-color: var(--ink-3); }
+.rail button.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.rail .spacer { flex: 1; border: 0; pointer-events: none; }
+
+.app { flex: 1; min-width: 0; display: flex; }
+.screenBody {
+  flex: 1; min-width: 0; display: flex; flex-direction: column;
+  overflow-y: auto; overscroll-behavior: contain;
+  padding: 18px 20px 24px;
+  scrollbar-width: thin; scrollbar-color: var(--line) transparent;
+}
+.boardHead {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 16px; margin-bottom: 20px;
+  border-bottom: 1px solid var(--line); padding-bottom: 14px;
+}
+.boardHead h1 { font-size: 21px; font-weight: 500; letter-spacing: -.01em; margin: 0; }
+.who { display: flex; align-items: center; gap: 8px;
+       font-size: 9.5px; letter-spacing: .14em; text-transform: uppercase;
+       color: var(--ink-3); }
+.who select {
+  appearance: none; font-family: inherit; font-size: 9.5px;
+  letter-spacing: .14em; text-transform: uppercase;
+  color: var(--ink); background: transparent;
+  border: 1px solid var(--line); border-radius: 0;
+  padding: 5px 8px; cursor: pointer;
+}
+
+.cards { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(255px, 1fr)); }
+/* The line chart earns two columns where there is room. A fortnight of daily
+   takings squeezed into a card the width of a list is a scribble. */
+.card.wide { grid-column: span 2; }
+@media (max-width: 900px) { .card.wide { grid-column: span 1; } }
+
+.card {
+  border: 1px solid var(--line); padding: 14px 15px 15px;
+  display: flex; flex-direction: column; min-height: 0;
+}
+.card h2 {
+  font-size: 9px; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--ink-3); font-weight: 500; margin: 0 0 10px;
+  display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+}
+.card h2 b { color: var(--ink); font-weight: 500; letter-spacing: .04em;
+             font-size: 15px; text-transform: none; }
+.card .none { color: var(--ink-4); font-size: 11px; padding: 6px 0; }
+
+/* figures */
+.fig { display: flex; justify-content: space-between; align-items: baseline;
+       gap: 12px; padding: 5px 0; border-bottom: 1px solid var(--line); }
+.fig:last-child { border-bottom: 0; }
+.fig span { font-size: 11px; color: var(--ink-2); }
+.fig b { font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; }
+
+/* Bad news is inverted rather than red — the panel has no colour to spend and
+   a shopkeeper reading this in sunlight gets contrast, not hue. */
+.fig.warn b, .note.watch { background: var(--ink); color: var(--paper); padding: 1px 5px; }
+.note { font-size: 11px; line-height: 1.5; padding: 5px 0; color: var(--ink-2); }
+.note.watch { display: inline-block; margin: 3px 0; }
+
+.spark { width: 100%; height: 92px; display: block; }
+.spark .line { fill: none; stroke: var(--ink); stroke-width: 1.5; }
+.spark .area { fill: var(--ink); opacity: .07; }
+.spark .base { stroke: var(--line); stroke-width: 1; }
+.spark .dot  { fill: var(--ink); }
+.ring { width: 108px; height: 108px; flex-shrink: 0; }
+.ring circle { fill: none; stroke-width: 13; }
+.donut { display: flex; gap: 14px; align-items: center; }
+.keys { flex: 1; min-width: 0; }
+.key { display: flex; align-items: center; gap: 7px; font-size: 10.5px;
+       padding: 2px 0; color: var(--ink-2); }
+.key i { width: 9px; height: 9px; flex-shrink: 0; background: var(--ink); }
+.key span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.key b { font-weight: 500; font-variant-numeric: tabular-nums; color: var(--ink); }
+
+.tab.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+
+/* ─── shell and ssh ─────────────────────────────────────────────────────── */
+.term {
+  flex: 1; min-height: 140px; margin: 0; overflow-y: auto;
+  border: 1px solid var(--line); padding: 10px 12px;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 11.5px; line-height: 1.55; white-space: pre-wrap; word-break: break-word;
+  color: var(--ink-2); background: transparent;
+}
+.term b { color: var(--ink); font-weight: 500; }
+.term i { color: var(--ink-4); font-style: normal; }
+.entry { display: flex; align-items: center; gap: 8px; margin-top: 8px;
+         border: 1px solid var(--line); padding: 7px 10px; }
+.entry .prompt { color: var(--ink-3);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; }
+.entry input {
+  flex: 1; appearance: none; border: 0; background: transparent; outline: none;
+  color: var(--ink); font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 12px;
+}
+.hints { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.hints button {
+  appearance: none; cursor: pointer; border: 1px solid var(--line);
+  background: transparent; color: var(--ink-3); border-radius: 0;
+  font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 10.5px;
+  padding: 4px 8px;
+}
+.hints button:hover { color: var(--ink); border-color: var(--ink-3); }
+
+.split { flex: 1; min-height: 0; display: grid; grid-template-columns: 230px 1fr; gap: 14px; }
+.hosts { display: flex; flex-direction: column; gap: 8px; min-width: 0;
+         border-right: 1px solid var(--line); padding-right: 14px; }
+.hosts h2 { font-size: 9px; letter-spacing: .18em; text-transform: uppercase;
+  color: var(--ink-3); font-weight: 500; margin: 0 0 4px;
+  display: flex; justify-content: space-between; align-items: center; }
+.host { text-align: left; appearance: none; cursor: pointer; border-radius: 0;
+  border: 1px solid var(--line); background: transparent; color: var(--ink-2);
+  padding: 7px 9px; font-family: inherit; font-size: 11px; }
+.host.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.host small { display: block; opacity: .65; font-size: 10px; }
+.newHost { display: flex; flex-direction: column; gap: 5px; margin-top: 4px; }
+.newHost input { appearance: none; border: 1px solid var(--line); border-radius: 0;
+  background: transparent; color: var(--ink); font-family: inherit;
+  font-size: 11px; padding: 5px 7px; outline: none; }
+.session { display: flex; flex-direction: column; min-width: 0; }
+
+/* ─── the gauge ─────────────────────────────────────────────────────────── */
+.gauge { width: 170px; height: 104px; display: block; }
+.gauge .track { fill: none; stroke: var(--line); stroke-width: 13; }
+.gauge .fill  { fill: none; stroke: var(--ink);  stroke-width: 13; }
+.score { text-align: center; margin-top: -14px; }
+.score b { display: block; font-size: 30px; font-weight: 500;
+           font-variant-numeric: tabular-nums; letter-spacing: -.02em; }
+.score span { font-size: 10px; color: var(--ink-3); }
+.pick { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px,1fr));
+        gap: 10px; margin: 4px 0 16px; }
+.pick button { appearance: none; cursor: pointer; border-radius: 0;
+  border: 1px solid var(--line); background: transparent; color: var(--ink);
+  font-family: inherit; font-size: 13px; padding: 16px 12px; text-transform: capitalize; }
+.pick button.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.todo { display: flex; align-items: flex-start; gap: 9px; padding: 7px 0;
+        border-bottom: 1px solid var(--line); font-size: 11.5px; color: var(--ink-2); }
+.todo:last-child { border-bottom: 0; }
+
+/* The `hidden` attribute is styled by the browser as `[hidden]{display:none}`
+   in its own stylesheet, which any author rule outranks. .board and
+   .screenBody both set `display: flex`, so every screen stayed on the page
+   and the six of them tiled side by side — the markup said hidden and the
+   layout disagreed. Author-level, and !important so a future display rule
+   cannot quietly win the same argument again. */
+[hidden] { display: none !important; }
+
+/* Joined pair: one control, two states. */
+.seg { display: inline-flex; }
+.seg .tool { border-radius: 0; }
+.seg .tool + .tool { border-left: 0; }
+.tool.mini { min-width: 30px; padding: 0 8px; justify-content: center;
+             font-size: 13px; letter-spacing: 0; }
