@@ -14,6 +14,16 @@ with the network switched off.**
 
 </div>
 
+## Download for Windows
+
+**[⬇ Download Shishya-Setup-1.0.0.exe](https://github.com/FireFoxWay/Shishya-Windows/releases/latest/download/Shishya-Setup-1.0.0.exe)**
+(125 MB, Windows 10/11, per-user install, no administrator rights needed)
+
+Prefer no installer? Get the
+[portable zip](https://github.com/FireFoxWay/Shishya-Windows/releases/latest/download/Shishya-1.0.0-portable.zip)
+(188 MB), unzip it anywhere, and run `Shishya.exe`. All versions are on the
+[Releases page](https://github.com/FireFoxWay/Shishya-Windows/releases).
+
 ---
 
 ## What it is
@@ -89,7 +99,7 @@ today.txt` gives you plain text.
 ### On Windows
 
 **Windows is a first-class platform, and it needs no VM.** Run
-`Shishya-Setup-<version>.exe`: a per-user install, no administrator rights,
+[`Shishya-Setup-<version>.exe`](#download-for-windows): a per-user install, no administrator rights,
 and nothing else to install — except Ollama, for the model. Shishya appears
 in Start; the clone lives only while its window is open.
 
