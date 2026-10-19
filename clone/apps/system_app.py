@@ -133,7 +133,7 @@ class SystemApp(kit.Window):
         else:
             if self.look.get("wallpaper") in ("galaxy", "matrix"):
                 self.look["last_live"] = self.look["wallpaper"]
-            self.look["wallpaper"] = "#10151c"
+            self.look["wallpaper"] = "ink"
         self.save_look()
 
     def on_fps(self, value):

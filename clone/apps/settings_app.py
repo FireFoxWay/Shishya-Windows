@@ -20,9 +20,9 @@ from PySide6.QtWidgets import QHBoxLayout, QPushButton, QVBoxLayout   # noqa: E4
 import common   # noqa: E402
 
 CONFIG = common.SHARED / ".desktop.json"
-DEFAULTS = {"wallpaper": "#10151c", "accent": "#0078d4", "icon_size": 96,
+DEFAULTS = {"wallpaper": "ink", "accent": "#0078d4", "icon_size": 96,
             "wallmark": "SHISHYA SANDBOX"}
-WALLPAPERS = [("Galaxy", "galaxy"), ("Matrix", "matrix"), ("Slate", "#10151c"),
+WALLPAPERS = [("Ink", "ink"), ("Galaxy", "galaxy"), ("Matrix", "matrix"), ("Slate", "#10151c"),
               ("Indigo", "#141a2e"), ("Forest", "#101c17"), ("Plum", "#1b1220"),
               ("Graphite", "#161616")]
 ACCENTS = [("Blue", "#0078d4"), ("Teal", "#0f8b8d"), ("Marigold", "#c9821a"),
@@ -56,6 +56,8 @@ class Swatch(QPushButton):
             if self.value not in Swatch.previews:
                 Swatch.previews[self.value] = wallpaper.LIVE[self.value][0]()
             Swatch.previews[self.value].draw(p, self.width(), self.height())
+        elif self.value == "ink":
+            p.fillRect(self.rect(), QColor("#171B30"))
         else:
             p.fillRect(self.rect(), QColor(self.value))
         p.setPen(QColor("#0b0c0e"))

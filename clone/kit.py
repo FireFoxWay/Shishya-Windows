@@ -50,6 +50,7 @@ import common   # noqa: E402
 # desktop follow, so the three read as one product.
 
 ACCENT = "#0078d4"
+DOCK_SPACE = 88        # the strip the clone's dock floats in (desktop.RESERVED)
 INK, PAPER, RULE, MUTED = "#0b0c0e", "#fbfbfa", "#d9dcdf", "#6b7178"
 
 STYLE = f"""
@@ -81,10 +82,10 @@ QTabBar::tab:selected {{ background: white; border-bottom-color: white; }}
 QProgressBar {{ border: 1px solid {RULE}; background: white; height: 14px;
                 text-align: center; }}
 QProgressBar::chunk {{ background: {INK}; }}
-QFrame#titleBar {{ background: {INK}; }}
-QFrame#titleBar QLabel {{ color: #e9ebee; font-size: 11px; letter-spacing: 1.2px; }}
-QFrame#titleBar QPushButton {{ background: transparent; color: #e9ebee; border: 0;
-                               padding: 2px 10px; font-size: 12px; }}
+QFrame#titleBar {{ background: #1E2340; border-bottom: 1px solid #2C3256; }}
+QFrame#titleBar QLabel {{ color: #FBF7EC; font-size: 12px; font-weight: 600; }}
+QFrame#titleBar QPushButton {{ background: transparent; color: #FBF7EC; border: 0;
+                               padding: 2px 12px; font-size: 12px; }}
 QFrame#titleBar QPushButton:hover {{ background: #c42b1c; color: white; }}
 QFrame#card {{ background: white; border: 1px solid {RULE}; }}
 """
@@ -229,8 +230,8 @@ class TitleBar(QFrame):
         self.window_ = window
         self.setFixedHeight(28)
         row = QHBoxLayout(self)
-        row.setContentsMargins(10, 0, 0, 0)
-        self.text = QLabel(title.upper())
+        row.setContentsMargins(12, 0, 0, 0)
+        self.text = QLabel(title)
         row.addWidget(self.text, 1)
         close = QPushButton("✕")
         close.setAccessibleName("Close")
@@ -250,7 +251,7 @@ class TitleBar(QFrame):
             # Never dragged off the clone's screen: a window you cannot reach
             # the title of is a window you cannot close.
             want.setX(max(-self.window_.width() + 80, min(want.x(), 1440 - 80)))
-            want.setY(max(0, min(want.y(), 900 - 48 - 28)))
+            want.setY(max(0, min(want.y(), 900 - DOCK_SPACE - 28)))
             self.window_.move(want)
 
     def mouseReleaseEvent(self, _e):
@@ -282,9 +283,9 @@ class Window(QWidget):
         self.body = QWidget()
         self.body.setObjectName("appBody")
         outer.addWidget(self.body, 1)
-        # The clone's screen is 1440x900 with a 48px taskbar; nothing opens
-        # bigger than what is left of it.
-        self.resize(min(width, 1400), min(height, 900 - 48 - 12))
+        # The clone's screen is 1440x900 with a floating dock along the
+        # bottom; nothing opens bigger than what is left of it.
+        self.resize(min(width, 1400), min(height, 900 - DOCK_SPACE - 12))
 
     def show(self):
         if self.desk:
@@ -297,7 +298,7 @@ class Window(QWidget):
             # buttons can be reached.
             step = _open_on(self.desk) % 6
             x, y = 40 + step * 36, 20 + step * 30
-            self.resize(min(self.width(), 1440 - x - 12), min(self.height(), 900 - 48 - y - 8))
+            self.resize(min(self.width(), 1440 - x - 12), min(self.height(), 900 - DOCK_SPACE - y - 8))
             self.move(x, y)
         super().show()
         self.raise_()
