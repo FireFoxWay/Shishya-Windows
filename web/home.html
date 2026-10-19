@@ -300,6 +300,9 @@ a.tile { text-decoration: none; color: var(--ink); }
 .btn { min-height: 40px; padding: 0 16px; border-radius: 999px; border: 1px solid rgba(0, 0, 0, .14); font-weight: 600; background: var(--card); }
 .btn:hover { background: var(--page); }
 .btn.primary { background: var(--ink); color: var(--card); border-color: transparent; }
+/* On the clone's page the live screen is drawn over the stage by Windows,
+   so messages appear above it, in the bar. */
+body.on-clone .toast { bottom: auto; top: 64px; }
 .btn.danger { background: var(--bad); color: #fff; border-color: transparent; }
 .toast { position: fixed; left: 50%; bottom: 150px; transform: translateX(-50%); z-index: 9; background: var(--ink); color: var(--card); padding: 11px 20px; border-radius: 999px; font-size: 14px; box-shadow: var(--shadow); max-width: calc(100% - 32px); }
 
@@ -820,11 +823,32 @@ body.solid .tile { background: #FFFFFF; }
   };
   addEventListener("resize", () => { if (shot.src) fit(); });
   const screenPump = (() => {
-    let on = false, timer = null, iframe = null;
+    let on = false, timer = null, iframe = null, live = false, liveTimer = null;
+    // Live: Windows' compositor draws the clone's real window into this
+    // rectangle, every frame (host/live.py) — as smooth as the screen popped
+    // out. The picture below is the fallback, and what slides during a swipe.
+    const wantLive = () => on && onClone() && state?.sandbox.state === "running" && !state?.sandbox.popped;
+    const syncLive = async (settle = 0) => {
+      clearTimeout(liveTimer);
+      const show = wantLive();
+      if (!show) { if (live) { live = false; call("screen/live", { visible: false }).catch(() => {}); } return; }
+      liveTimer = setTimeout(async () => {
+        if (!wantLive()) return;
+        fit();
+        const r = shot.getBoundingClientRect();
+        try {
+          const out = await call("screen/live", { visible: true, dpr: devicePixelRatio,
+                                                   rect: [r.left, r.top, r.width, r.height] });
+          live = !!out.live;
+        } catch { live = false; }
+        if (!live) next(0);
+      }, settle);
+    };
+    addEventListener("resize", () => { if (live) syncLive(80); });
     const next = delay => {
       clearTimeout(timer);
       timer = setTimeout(() => {
-        if (!on) return;
+        if (!on || live) return;
         if (document.visibilityState === "hidden") return next(1500);
         shot.src = `/api/screen?w=${Math.round(fit() * devicePixelRatio) || 1440}&t=${Date.now()}`;
       }, delay);
@@ -846,9 +870,11 @@ body.solid .tile { background: #FFFFFF; }
           return;
         }
         on = true; next(0);
+        syncLive(560);                       // once the swipe has landed
       },
-      stop() { on = false; clearTimeout(timer); },
-      nudge() { if (on) next(60); }
+      stop() { on = false; clearTimeout(timer); syncLive(); },
+      sync() { syncLive(live ? 0 : 200); },
+      nudge() { if (on && !live) next(60); }
     };
   })();
 
@@ -859,6 +885,7 @@ body.solid .tile { background: #FFFFFF; }
       ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 20H4v-6M4 20l8-8M6 10V5h13v13h-5"/></svg>Bring it back'
       : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 4h6v6M20 4l-8 8M18 14v5H5V6h5"/></svg>Pop out';
     const note = $("screenNote");
+    screenPump.sync();
     if (!running) {
       note.hidden = false; shot.hidden = true;
       note.innerHTML = "<div><b>The sandbox is off.</b>Start it from Home, and its screen appears here.</div>";

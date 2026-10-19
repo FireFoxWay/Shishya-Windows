@@ -548,6 +548,14 @@ class Handler(SimpleHTTPRequestHandler):
                 return screen.show()
             if route == "screen/dock":
                 return screen.dock()
+            if route == "screen/live":
+                # The screen drawn live into this window by Windows' own
+                # compositor, where the page says it goes (host/live.py).
+                import live
+                r = body.get("rect")
+                return live.set_view(rect=r and [float(v) for v in r][:4],
+                                     dpr=float(body.get("dpr", 1)),
+                                     visible=bool(body.get("visible")))
 
         # ── write ── every one of these is logged, including from the CLI
         if route == "vm/create":
