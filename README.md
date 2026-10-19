@@ -219,6 +219,47 @@ Runs on the **host** via Ollama, reached from inside at
 emulated CPU instead of the Apple Silicon GPU is slow enough to sink a live
 demonstration.
 
+On Windows, Shishya starts Ollama itself if it is installed and not
+running, and reaches it through a named pipe only the sandbox may use.
+
+**Models for each job.** Every job (answering, code, documents) names its
+own model on the clone's Models screen. Open models that suit this machine:
+
+| Model | Licence | For |
+|---|---|---|
+| `qwen3:4b` | Apache-2.0 | quick answers, routing, documents |
+| `qwen2.5-coder:7b` | Apache-2.0 | writing code |
+| `deepseek-r1:8b` | MIT | careful answers; lessons into steps |
+| `gpt-oss:20b` | Apache-2.0 | large and general (no JSON-shaped output under Ollama) |
+
+`host/tune.py` makes Shishya's own versions of them (`shishya-code`,
+`shishya-answers`, `shishya-documents`) with each job's rules built in,
+using Ollama's create, so nothing is retrained and nothing leaves the
+machine; Shishya makes them at start for any base that is downloaded. The
+Models screen's **Test them on Shishya's jobs** runs every installed model
+on each job's real tasks inside the sandbox (`vm/shell/jobbench.py`) and
+gives each job the model that got the most right, fastest.
+
+### VS Code
+
+The real VS Code is bundled and runs **inside the sandbox** like every other
+app: no network, its settings and extensions in the clone's own home,
+`shared\work` as its folder, its window on the clone's screen. Open it from
+the clone's start panel (VS Code).
+
+It needs one step Windows only lets an administrator take. Node, which VS
+Code runs on, looks at the root of C: before it opens any file, and a
+sandboxed app may not by default. Run this once, in a terminal opened as
+administrator. It lets Shishya's sandbox read the attributes of `C:\`
+itself, and nothing else: no folder listing, no files, nothing below it.
+
+```
+icacls C:\ /grant *S-1-15-2-1700322577-3344956600-3688150473-1092480530-2905792460-468937178-3008308160:(S,RA)
+```
+
+Undo it with `icacls C:\ /remove *S-1-15-2-1700322577-3344956600-3688150473-1092480530-2905792460-468937178-3008308160`.
+Uninstalling Shishya does not remove it (that needs an administrator too).
+
 ### The network claim
 
 `host/vm.py:egress(True)` drops all outbound traffic from the sandbox except

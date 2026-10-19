@@ -25,7 +25,7 @@ from pathlib import Path
 import paths  # noqa: E402  — where the data lives: host/paths.py
 ROOT = Path(__file__).resolve().parent.parent
 OLLAMA = "http://localhost:11434"
-FALLBACK_MODEL = "gpt-oss:latest"
+FALLBACK_MODEL = "gpt-oss:20b"
 KEEP_ALIVE = "15m"
 
 # Same file the Models app writes and the sandbox apps read, so the terminal

@@ -1,0 +1,75 @@
+// Shishya - VS Code in the sandbox: settings for a first start (from Light VS Code).
+// Every setting here only turns OFF background work or eye-candy.
+// Nothing blocks extensions: install anything from the Extensions panel as usual.
+{
+    // ---- No phoning home / background services ----
+    "telemetry.telemetryLevel": "off",
+    "workbench.enableExperiments": false,
+    "workbench.settings.enableNaturalLanguageSearch": false,
+    "update.mode": "manual",
+    "update.showReleaseNotes": false,
+    "extensions.autoUpdate": false,
+    "extensions.autoCheckUpdates": false,
+    "extensions.ignoreRecommendations": true,
+    "npm.fetchOnlinePackageInfo": false,
+    "typescript.disableAutomaticTypeAcquisition": true,
+
+    // ---- Built-in AI/chat UI off (re-enable if you use Copilot) ----
+    "chat.disableAIFeatures": true,
+    "chat.commandCenter.enabled": false,
+
+    // ---- Faster startup ----
+    "workbench.startupEditor": "none",
+    "workbench.tips.enabled": false,
+    "workbench.welcomePage.walkthroughs.openOnInstall": false,
+    "window.restoreWindows": "one",
+
+    // ---- Less rendering work ----
+    "editor.minimap.enabled": false,
+    "editor.smoothScrolling": false,
+    "workbench.list.smoothScrolling": false,
+    "terminal.integrated.smoothScrolling": false,
+    "editor.cursorSmoothCaretAnimation": "off",
+    "editor.cursorBlinking": "solid",
+    "workbench.reduceMotion": "on",
+    "editor.occurrencesHighlight": "off",
+    "editor.renderLineHighlight": "line",
+    "editor.stickyScroll.enabled": false,
+
+    // ---- Fewer background scanners ----
+    "task.autoDetect": "off",
+    "npm.autoDetect": "off",
+    "typescript.tsc.autoDetect": "off",
+    "grunt.autoDetect": "off",
+    "gulp.autoDetect": "off",
+    "jake.autoDetect": "off",
+    "git.autofetch": false,
+    "git.autoRepositoryDetection": "openEditors",
+    "git.openRepositoryInParentFolders": "never",
+    "merge-conflict.codeLens.enabled": false,
+
+    // ---- Don't watch / index heavy folders ----
+    "files.watcherExclude": {
+        "**/.git/objects/**": true,
+        "**/.git/subtree-cache/**": true,
+        "**/node_modules/**": true,
+        "**/.venv/**": true,
+        "**/venv/**": true,
+        "**/__pycache__/**": true,
+        "**/dist/**": true,
+        "**/build/**": true,
+        "**/out/**": true,
+        "**/target/**": true
+    },
+    "search.exclude": {
+        "**/node_modules": true,
+        "**/.venv": true,
+        "**/venv": true,
+        "**/__pycache__": true,
+        "**/dist": true,
+        "**/build": true,
+        "**/out": true,
+        "**/target": true
+    },
+    "search.followSymlinks": false
+}

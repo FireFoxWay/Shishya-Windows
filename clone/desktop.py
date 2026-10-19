@@ -103,6 +103,7 @@ ALL_APPS = PINNED + [
     ("Training data", "training_app.py", "book", "lav"),
     ("Sheets", "sheet_app.py", "sheet", "mint"),
     ("Code", "code_app.py", "code", "paper"),
+    ("VS Code", "vscode_app.py", "code", "lav"),
     ("Banking", "bank_app.py", "bank", "mint"),
     ("Credit", "credit_app.py", "card", "mint"),
     ("Work folder", ("files_app.py", str(common.WORK)), "folder", "paper"),

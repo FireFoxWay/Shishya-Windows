@@ -27,11 +27,15 @@ JOBS = [("answers", "Answering questions",
          "Writes the small programs that do the counting. A code-trained model earns its space here."),
         ("documents", "Writing documents",
          "Drafts notes, letters and decks. Follows structure more than it reasons.")]
-CATALOGUE = [("qwen2.5:3b", "1.9 GB", "Small and quick. Good for answering."),
-             ("llama3.2:3b", "2.0 GB", "Small, general purpose."),
+# Open models (Apache-2.0 or MIT) that run on this machine. The shishya-*
+# models are made here from these by host/tune.py, not downloaded, and
+# vm/jobbench.py measures which one each job should use.
+CATALOGUE = [("qwen3:4b", "2.5 GB", "Small and very quick. Answers, routing, documents."),
              ("qwen2.5-coder:7b", "4.7 GB", "Trained on code. Best for the Code app."),
-             ("deepseek-r1:8b", "5.2 GB", "Reasons before answering. Slower, more careful."),
-             ("gpt-oss:latest", "13.8 GB", "Large and general. Wants a roomy machine.")]
+             ("deepseek-r1:8b", "5.2 GB", "Reasons step by step. Turns lessons into steps."),
+             ("gpt-oss:20b", "13 GB", "OpenAI's open model. Large and careful; wants a GPU."),
+             ("phi4-mini", "2.5 GB", "Microsoft's small model. Quick general answers."),
+             ("llama3.2:3b", "2.0 GB", "Small, general purpose.")]
 
 
 def table(headers):
@@ -92,6 +96,7 @@ class ModelsApp(kit.Window):
         feet = QHBoxLayout()
         self.status = kit.label("", role="muted", wrap=True)
         feet.addWidget(self.status, 1)
+        feet.addWidget(kit.button("Test them on Shishya's jobs", self.on_test))
         feet.addWidget(kit.button("Remove", self.on_remove))
         feet.addWidget(kit.button("Add selected", self.on_add, primary=True))
         root.addLayout(feet)
@@ -171,6 +176,24 @@ class ModelsApp(kit.Window):
             return self.status.setText(f"{name} is doing a job — give that job to another model first.")
         kit.background(lambda: (common.model_request("DELETE", "/api/delete", {"name": name}),
                                 f"Removed {name}.")[1], self.done)
+
+    def on_test(self):
+        """Run every installed model on each job's real tests here in the
+        sandbox (vm/shell/jobbench.py) and give each job the one that got
+        the most right, fastest. Minutes, not seconds: every model loads."""
+        if not self.installed:
+            return self.status.setText("Add a model first.")
+        self.status.setText("Testing every model on each job — this takes a few minutes…")
+        common.set_state("working")
+
+        def test():
+            import jobbench
+            _, winners = jobbench.measure(
+                sorted(self.installed),
+                say=lambda line: kit.ui(self.status.setText, "Testing: " + " ".join(line.split()[:4])))
+            self.choice = jobbench.apply(winners)
+            return "Best for each job: " + ", ".join(f"{j} → {m}" for j, m in winners.items())
+        kit.background(test, self.done)
 
     def done(self, message):
         self.status.setText(str(message))

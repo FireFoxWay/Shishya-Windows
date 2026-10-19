@@ -44,6 +44,8 @@ import winbox
 ROOT = paths.ROOT
 CLONE = ROOT / "clone"
 VMDIR = ROOT / "vm"
+VSCODE = ROOT / "tools" / "vscode"          # bundled by windows/build.ps1, if it was
+ALL_APP_PACKAGES = "S-1-15-2-1"
 
 # The names vm.py replaces with ours. Everything else in vm.py — lessons,
 # jobs, approvals, schedules, taking files back — is shared and stays.
@@ -138,6 +140,14 @@ def provision():
                                (paths.SHARED, True, "shared/ — the one folder both sides use")):
         winbox.grant(folder, write=write)
         grants.append({"path": str(folder), "write": write, "why": why})
+    if (VSCODE / "Code.exe").exists():
+        # Electron refuses to start from a folder whose ACL names one
+        # AppContainer but not ALL APPLICATION PACKAGES — the read grant
+        # every Program Files folder already has. Program code, read-only.
+        winbox.grant(VSCODE, write=False)
+        subprocess.run(["icacls", str(VSCODE), "/grant", f"*{ALL_APP_PACKAGES}:(OI)(CI)RX", "/C", "/Q"],
+                       capture_output=True, creationflags=winbox.CREATE_NO_WINDOW)
+        grants.append({"path": str(VSCODE), "write": False, "why": "VS Code, to run"})
     # The ledger, read-only and by itself: the Activity app shows it, and an
     # audit log the audited party can edit is not an audit log.
     _grant_file(LEDGER)
@@ -225,6 +235,9 @@ def clone_env(**extra):
         "LOCALAPPDATA": str(home / "AppData" / "Local"),
         "APPDATA": str(home / "AppData" / "Roaming"),
         "TEMP": str(home / "Temp"), "TMP": str(home / "Temp"),
+        # Windows rewrites TEMP for an AppContainer to a folder that does not
+        # exist; this name it leaves alone, and vm/shell/common.py restores it.
+        "SHISHYA_TEMP": str(home / "Temp"),
         "PATH": f"{rt};{rt / 'Scripts'};" + winbox.base_env()["PATH"],
         "SHISHYA_SHARED": str(paths.SHARED),
         "SHISHYA_ROOT": str(ROOT),
@@ -389,6 +402,81 @@ def _caps_for(name):
     return ()
 
 
+def _vscode_root_readable():
+    """Node, which VS Code runs on, looks at the root of C: before it opens any
+    file, and an AppContainer may not by default. One admin command grants
+    the sandbox that and nothing more (the README says which)."""
+    sid = winbox.container_sid()
+    p = subprocess.run(["icacls", "C:\\"], capture_output=True, text=True,
+                       creationflags=winbox.CREATE_NO_WINDOW)
+    return sid in (p.stdout or "")
+
+
+def launch_vscode():
+    """VS Code into the container, its window onto the clone's screen."""
+    _require_running()
+    code = VSCODE / "Code.exe"
+    if not code.exists():
+        raise _error("VS Code is not part of this copy of Shishya")
+    if not _vscode_root_readable():
+        raise _error("VS Code needs one administrator step first: let the sandbox read the root of C: "
+                     "itself (see README, \"VS Code\")")
+    data = clone_home() / "vscode" / "data"
+    user = data / "user-data" / "User"
+    for d in (user, data / "extensions", data / "tmp"):
+        d.mkdir(parents=True, exist_ok=True)
+    tuned = ROOT / "windows" / "vscode-settings.json"
+    if tuned.exists() and not (user / "settings.json").exists():
+        shutil.copyfile(tuned, user / "settings.json")
+    env = clone_env()
+    env["VSCODE_PORTABLE"] = str(data)       # settings and extensions in the clone's home
+    proc = winbox.launch([code, "--no-sandbox", str(paths.SHARED / "work")],
+                         caps=_caps_for("vscode_app.py"), env=env, cwd=clone_home(),
+                         capture=True, window=True)
+    _drain(proc, "vscode")
+    threading.Thread(target=_embed_vscode, args=(proc.pid,), daemon=True).start()
+    return {"launched": "vscode_app.py", "pid": proc.pid}
+
+
+def _embed_vscode(pid, wait=60):
+    """Put VS Code's window on the clone's screen as soon as it exists: a
+    child of the screen, so it is hidden with it, shown in Shishya's window
+    and popped out with it — never a window of its own on your desktop."""
+    import ctypes
+    from ctypes import wintypes
+    user32 = ctypes.windll.user32
+    GWL_STYLE, WS_CHILD, WS_POPUP = -16, 0x40000000, 0x80000000
+    Enum = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+    deadline = time.time() + wait
+    while time.time() < deadline:
+        desk = _desktop_hwnd()
+        mine = set(winbox.container_pids())
+        found = []
+
+        def each(h, _):
+            owner = wintypes.DWORD()
+            user32.GetWindowThreadProcessId(h, ctypes.byref(owner))
+            cls = ctypes.create_unicode_buffer(64)
+            user32.GetClassNameW(h, cls, 64)
+            if owner.value in mine and cls.value == "Chrome_WidgetWin_1"                     and "Code.exe" in winbox.command_line(owner.value) and user32.IsWindowVisible(h)                     and user32.GetWindowTextLengthW(h):
+                found.append(h)
+            return True
+        user32.EnumWindows(Enum(each), 0)
+        if desk and found:
+            r = wintypes.RECT()
+            user32.GetClientRect(desk, ctypes.byref(r))
+            k = (r.right or 1440) / 1440          # device pixels per point
+            for h in found:
+                style = user32.GetWindowLongW(h, GWL_STYLE)
+                user32.SetWindowLongW(h, GWL_STYLE, (style & ~WS_POPUP) | WS_CHILD)
+                user32.SetParent(h, desk)
+                user32.SetWindowPos(h, 0, int(60 * k), int(40 * k), int(1240 * k), int(760 * k),
+                                    0x0040 | 0x0020)          # SHOWWINDOW | FRAMECHANGED
+            return True
+        time.sleep(0.05)
+    return False
+
+
 def launch_app(name, *args):
     """Start one of the clone's apps on its screen.
 
@@ -396,6 +484,8 @@ def launch_app(name, *args):
     clone's desktop to do it — the same reason the Mac launched through
     limactl: it keeps working when clicking inside the sandbox does not.
     """
+    if name == "vscode_app.py":
+        return launch_vscode()
     _require_running()
     rt = _need_runtime()
     target = APPS / name

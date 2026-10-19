@@ -34,7 +34,11 @@ param(
     [string]$PythonVersion = "3.12.10",
     [string]$Version = "1.0.0",
     [switch]$SkipInstaller,
-    [switch]$Clean
+    [switch]$Clean,
+    # A VS Code folder to bundle (the portable "VSCode" folder). Empty: the
+    # official archive from Microsoft, kept in the cache. -NoVSCode leaves it out.
+    [string]$VSCode = "",
+    [switch]$NoVSCode
 )
 
 $ErrorActionPreference = "Stop"
@@ -158,6 +162,27 @@ foreach ($file in @("serve.py", "shishya", "shishya_win.pyw", "doctor.py", "READ
     Copy-Item (Join-Path $Repo $file) $App -Force
 }
 Set-Content (Join-Path $App "INSTALLED") -Value "Data lives in %LOCALAPPDATA%\Shishya\Data." -Encoding ascii
+
+# --- VS Code: the real editor, run in the sandbox (host/winvm.py) ----------
+if (-not $NoVSCode) {
+    Step "VS Code"
+    if (-not $VSCode) {
+        $VSCode = Join-Path $Cache "vscode"
+        if (-not (Test-Path (Join-Path $VSCode "Code.exe"))) {
+            $vzip = Join-Path $Cache "vscode.zip"
+            Invoke-WebRequest "https://update.code.visualstudio.com/latest/win32-x64-archive/stable" -OutFile $vzip -UseBasicParsing
+            Expand-Archive $vzip -DestinationPath $VSCode -Force
+        }
+    }
+    $sig = Get-AuthenticodeSignature (Join-Path $VSCode "Code.exe")
+    if ($sig.Status -ne "Valid" -or $sig.SignerCertificate.Subject -notmatch "Microsoft Corporation") {
+        throw "Code.exe in $VSCode is not validly signed by Microsoft ($($sig.Status))"
+    }
+    # Never anyone's own settings or extensions: the data folder stays behind.
+    robocopy $VSCode (Join-Path $App "tools\vscode") /MIR /XD (Join-Path $VSCode "data") /NFL /NDL /NJH /NJS /NP | Out-Null
+    if ($LASTEXITCODE -ge 8) { throw "copying VS Code failed" }
+    Write-Host ("VS Code " + (Get-Item (Join-Path $VSCode "Code.exe")).VersionInfo.ProductVersion)
+}
 
 Step "seed for a first run"
 $seed = Join-Path $App "seed"

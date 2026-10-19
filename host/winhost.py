@@ -16,11 +16,13 @@ the shared folder is the one channel between the two sides, as it always was.
 """
 
 import json
+import os
 import re
 import subprocess
 import sys
 import threading
 import time
+import urllib.request
 from pathlib import Path
 
 import broker
@@ -56,7 +58,60 @@ def start():
                       may_manage=_is_head).start()
     _started["broker"] = b
     threading.Thread(target=_watch, daemon=True, name="clone-requests").start()
+    threading.Thread(target=_models_ready, daemon=True, name="ollama").start()
     return _started
+
+
+def _ollama_up():
+    try:
+        with urllib.request.urlopen(broker.OLLAMA + "/api/version", timeout=2):
+            return True
+    except OSError:
+        return False
+
+
+def _models_ready():
+    """Ollama up, and Shishya's own models made from whatever bases are here
+    (host/tune.py) — local, quick, nothing downloaded."""
+    if not ensure_ollama():
+        return
+    try:
+        import tune
+        have = tune.installed()
+        for name, spec in tune.TUNED.items():
+            if spec["from"] in have and f"{name}:latest" not in have:
+                tune.create(name, spec)
+                ledger.record(ledger.INFO, "model.tune", name, actor="system",
+                              detail=f"made from {spec['from']} for Shishya's jobs")
+    except Exception as e:                              # noqa: BLE001 — the apps still work without them
+        ledger.record(ledger.DENY, "model.tune.fail", type(e).__name__, actor="system",
+                      detail=str(e)[:200])
+
+
+def ensure_ollama():
+    """Start Ollama if it is installed and not running.
+
+    Every app's model answers through it, and Ollama is often not running —
+    after a restart, or when its tray icon was quit — and then each app
+    failed with "the target machine actively refused it". Its own tray app
+    is what is started, exactly as if the person had opened it from Start.
+    """
+    if _ollama_up():
+        return True
+    local = Path(os.environ.get("LOCALAPPDATA", ""))
+    for exe in (local / "Programs" / "Ollama" / "ollama app.exe",
+                Path(os.environ.get("ProgramFiles", "")) / "Ollama" / "ollama app.exe"):
+        if exe.exists():
+            subprocess.Popen([str(exe)], creationflags=winbox.CREATE_NO_WINDOW,
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            for _ in range(30):
+                time.sleep(1)
+                if _ollama_up():
+                    ledger.record(ledger.INFO, "model.start", "ollama", actor="system",
+                                  detail="started Ollama so the apps can answer")
+                    return True
+            break
+    return False
 
 
 def broker_state():

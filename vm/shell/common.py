@@ -25,6 +25,43 @@ HOME = Path.home()
 SHARED = Path(os.environ["SHISHYA_SHARED"]) if os.environ.get("SHISHYA_SHARED") \
     else HOME / "shared"
 WINDOWS = sys.platform == "win32"
+
+
+def _sandbox_temp():
+    """Temporary folders that work inside the AppContainer.
+
+    Two things broke every tempfile.TemporaryDirectory here — and with it the
+    Code app's Run, reading old Office files and the checks. Windows rewrites
+    TEMP for a sandboxed process to a folder that does not exist, so Python
+    fell back to the current folder; and Python 3.12 makes those folders with
+    an ACL naming only the Windows user, which an AppContainer process is not
+    — it was locked out of the folder it had just made. So: the real Temp
+    (passed as SHISHYA_TEMP), and folders made plainly, inheriting its ACL.
+    """
+    import secrets
+    import tempfile
+    real = os.environ.get("SHISHYA_TEMP")
+    if not real:
+        return
+    os.makedirs(real, exist_ok=True)
+    os.environ["TEMP"] = os.environ["TMP"] = real
+    tempfile.tempdir = real
+
+    def mkdtemp(suffix=None, prefix=None, dir=None):
+        base = dir or real
+        for _ in range(100):
+            path = os.path.join(base, f"{prefix or 'tmp'}{secrets.token_hex(5)}{suffix or ''}")
+            try:
+                os.mkdir(path)
+                return os.path.abspath(path)
+            except FileExistsError:
+                continue
+        raise FileExistsError("no free temporary name")
+    tempfile.mkdtemp = mkdtemp
+
+
+if WINDOWS:
+    _sandbox_temp()
 WORK = SHARED / "work"
 LESSONS = SHARED / "lessons"
 TRAINING = SHARED / "training"
@@ -210,7 +247,7 @@ def run_python(script, cwd=None, timeout=60):
 # reasoning model while the Models screen showed the 14GB one the owner picked.
 # Thirty minutes of "I couldn't write a program for that." The fallback is now
 # the owner's model, so forgetting a job name costs nothing but this comment.
-MODEL = "gpt-oss:latest"
+MODEL = "gpt-oss:20b"
 
 # ─── one job, one model ─────────────────────────────────────────────────────
 # Different work wants different models, and a school should not have to hold
@@ -281,9 +318,10 @@ def warm(job=None):
         return False
 
 
-def ask(prompt, system=None, schema=None, timeout=600, budget=None, job=None):
+def ask(prompt, system=None, schema=None, timeout=600, budget=None, job=None, model=None):
     body = {
-        "model": model_for(job) if job else MODEL,
+        # model= names one outright (the benchmark); otherwise the job's.
+        "model": model or (model_for(job) if job else MODEL),
         "prompt": prompt,
         "stream": False,
         "think": False,
@@ -345,6 +383,11 @@ def _strip_think(text):
     text = re.sub(r"<think>.*?</think>", "", text, flags=re.S).strip()
     if "<think>" in text:
         return ""                     # opened and never closed: truncated
+    # qwen3's template opens the block itself, in the prompt, so the reply
+    # carries only the close: the reasoning, then </think>, then the answer.
+    # Without this the reasoning reached the user as the answer.
+    if "</think>" in text:
+        text = text.rsplit("</think>", 1)[1].strip()
     return text
 
 
