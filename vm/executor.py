@@ -279,6 +279,25 @@ if sys.platform == "win32":
 
 # ─── verifying ──────────────────────────────────────────────────────────────
 
+def attempt(action):
+    """Do one action and check it: (ok, message, done).
+
+    done says the action itself went through, so a failed check is worth one
+    retry. An application that closed mid-run makes the hands raise — the
+    window is gone, or is no longer the clone's — and that used to end the
+    whole run with no word to the person watching. It is a failed step, with
+    its reason, like any other.
+    """
+    try:
+        done, message = DO[action["do"]](action)
+        if not done:
+            return False, message, False
+        ok, verified = confirm(action)
+        return ok, f"{message} — {verified}", True
+    except Exception as e:                       # noqa: BLE001 — reported, never raised
+        return False, f"could not do it ({type(e).__name__}: {str(e)[:160]})", False
+
+
 def confirm(action):
     """Check the thing that was supposed to happen actually did.
 
@@ -514,16 +533,13 @@ def run(proc, on_event=None, ask_dir=None):
                              "is selected — stopping rather than typing blind"})
             break
 
-        ok, message = DO[action["do"]](action)
-        if ok:
-            ok, verified = confirm(action)
-            message = f"{message} — {verified}"
-            if not ok:
-                # One retry, because a slow application is the usual cause.
-                time.sleep(1.2)
-                DO[action["do"]](action)
-                ok, verified = confirm(action)
-                message = f"{message}; retried — {verified}"
+        ok, message, done = attempt(action)
+        if done and not ok:
+            # One retry, because a slow application is the usual cause. Its
+            # own result counts: a retry that fails says why.
+            time.sleep(1.2)
+            ok, again, _ = attempt(action)
+            message = f"{message}; retried — {again}"
 
         if ok:
             # A goto names a cell; a type either named one or followed a goto,

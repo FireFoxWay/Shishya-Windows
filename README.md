@@ -242,6 +242,7 @@ gives each job the model that got the most right, fastest.
 
 ### VS Code
 
+*Not in the 1.0.4 download yet* — build with `windows/build.ps1` to include it.
 The real VS Code is bundled and runs **inside the sandbox** like every other
 app: no network, its settings and extensions in the clone's own home,
 `shared\work` as its folder, its window on the clone's screen. Open it from
@@ -262,8 +263,11 @@ administrator. It lets Shishya's sandbox read the attributes of `C:\`
 itself, and nothing else: no folder listing, no files, nothing below it.
 
 ```
-icacls C:\ /grant *S-1-15-2-1700322577-3344956600-3688150473-1092480530-2905792460-468937178-3008308160:(S,RA)
+icacls C:\ /grant "*S-1-15-2-1700322577-3344956600-3688150473-1092480530-2905792460-468937178-3008308160:(S,RA)"
 ```
+
+Keep the quotes: without them PowerShell reads `(S,RA)` as code and the
+grant does not happen. It should end with "Successfully processed 1 files".
 
 Undo it with `icacls C:\ /remove *S-1-15-2-1700322577-3344956600-3688150473-1092480530-2905792460-468937178-3008308160`.
 Uninstalling Shishya does not remove it (that needs an administrator too).

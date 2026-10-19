@@ -21,8 +21,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import kit   # noqa: E402
 from PySide6.QtWidgets import QApplication, QVBoxLayout   # noqa: E402
 
-GRANT = ("icacls C:\\ /grant *S-1-15-2-1700322577-3344956600-3688150473-1092480530-"
-         "2905792460-468937178-3008308160:(S,RA)")
+# Quoted: in PowerShell, unquoted (S,RA) is an expression, not text.
+GRANT = ('icacls C:\\ /grant "*S-1-15-2-1700322577-3344956600-3688150473-1092480530-'
+         '2905792460-468937178-3008308160:(S,RA)"')
 
 
 class NeedsAdmin(kit.Window):
