@@ -103,7 +103,6 @@ ALL_APPS = PINNED + [
     ("Training data", "training_app.py", "book", "lav"),
     ("Sheets", "sheet_app.py", "sheet", "mint"),
     ("Code", "code_app.py", "code", "paper"),
-    ("VS Code", "vscode_app.py", "code", "lav"),
     ("Banking", "bank_app.py", "bank", "mint"),
     ("Credit", "credit_app.py", "card", "mint"),
     ("Work folder", ("files_app.py", str(common.WORK)), "folder", "paper"),
@@ -114,6 +113,11 @@ ALL_APPS = PINNED + [
     ("Models", "models_app.py", "model", "paper"),
     ("Settings", "settings_app.py", "sliders", "paper"),
 ]
+
+# VS Code only where this copy of Shishya was built with it (windows/build.ps1).
+if (Path(__file__).resolve().parent.parent / "tools" / "vscode" / "Code.exe").exists():
+    ALL_APPS.insert(next(i for i, a in enumerate(ALL_APPS) if a[1] == "code_app.py") + 1,
+                    ("VS Code", "vscode_app.py", "code", "lav"))
 
 EMBEDDED = os.environ.get("SHISHYA_SCREEN") == "embedded"
 WATCHING = common.SHARED / ".watching"      # touched by the host while it shows us

@@ -16,11 +16,11 @@ with the network switched off.**
 
 ## Download for Windows
 
-**[⬇ Download Shishya-Setup-1.0.3.exe](https://github.com/FireFoxWay/Shishya-Windows/releases/latest/download/Shishya-Setup-1.0.3.exe)**
+**[⬇ Download Shishya-Setup-1.0.4.exe](https://github.com/FireFoxWay/Shishya-Windows/releases/latest/download/Shishya-Setup-1.0.4.exe)**
 (125 MB, Windows 10/11, per-user install, no administrator rights needed)
 
 Prefer no installer? Get the
-[portable zip](https://github.com/FireFoxWay/Shishya-Windows/releases/latest/download/Shishya-1.0.3-portable.zip)
+[portable zip](https://github.com/FireFoxWay/Shishya-Windows/releases/latest/download/Shishya-1.0.4-portable.zip)
 (188 MB), unzip it anywhere, and run `Shishya.exe`. All versions are on the
 [Releases page](https://github.com/FireFoxWay/Shishya-Windows/releases).
 
@@ -246,6 +246,14 @@ The real VS Code is bundled and runs **inside the sandbox** like every other
 app: no network, its settings and extensions in the clone's own home,
 `shared\work` as its folder, its window on the clone's screen. Open it from
 the clone's start panel (VS Code).
+
+VS Code is where you run the clone's OS; the Code app stays for writing
+scripts for your work. Its tasks (Terminal → Run Task) and shortcuts open
+the clone's apps and run taught lessons — Ctrl+Alt+B Billing, Ctrl+Alt+F
+Files, Ctrl+Alt+I Inbox, Ctrl+Alt+S the chat, Ctrl+Alt+T teach, Ctrl+Alt+L
+run a lesson — and `shishya` in its terminal does the same (`shishya help`).
+Add your own tasks and shortcuts the same way: each is one `shishya` command,
+and the host checks and logs every one.
 
 It needs one step Windows only lets an administrator take. Node, which VS
 Code runs on, looks at the root of C: before it opens any file, and a

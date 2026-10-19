@@ -419,8 +419,9 @@ def launch_vscode():
     if not code.exists():
         raise _error("VS Code is not part of this copy of Shishya")
     if not _vscode_root_readable():
-        raise _error("VS Code needs one administrator step first: let the sandbox read the root of C: "
-                     "itself (see README, \"VS Code\")")
+        # Say so on the clone's screen, where the person clicked — not only
+        # in the ledger, which is where a launch that cannot happen would go.
+        return _launch_clone_app("vscode_app.py", "--needs-admin")
     data = clone_home() / "vscode" / "data"
     user = data / "user-data" / "User"
     for d in (user, data / "extensions", data / "tmp"):
@@ -428,14 +429,60 @@ def launch_vscode():
     tuned = ROOT / "windows" / "vscode-settings.json"
     if tuned.exists() and not (user / "settings.json").exists():
         shutil.copyfile(tuned, user / "settings.json")
+    bin_dir = _seed_vscode_control(user)
     env = clone_env()
     env["VSCODE_PORTABLE"] = str(data)       # settings and extensions in the clone's home
+    env["PATH"] = f"{bin_dir};{env['PATH']}"  # `shishya open billing` in its terminal
     proc = winbox.launch([code, "--no-sandbox", str(paths.SHARED / "work")],
                          caps=_caps_for("vscode_app.py"), env=env, cwd=clone_home(),
                          capture=True, window=True)
     _drain(proc, "vscode")
     threading.Thread(target=_embed_vscode, args=(proc.pid,), daemon=True).start()
     return {"launched": "vscode_app.py", "pid": proc.pid}
+
+
+# What VS Code is for here: running the clone's OS. Each task is one
+# `shishya` command (vm/shell/ctl.py) and each has a shortcut; both files are
+# written once and are then the person's to change and add to.
+VSCODE_TASKS = [("Shishya: open the chat", ["open", "chat"], "ctrl+alt+s"),
+                ("Shishya: open Billing", ["open", "billing"], "ctrl+alt+b"),
+                ("Shishya: open Files", ["open", "files"], "ctrl+alt+f"),
+                ("Shishya: open Inbox", ["open", "inbox"], "ctrl+alt+i"),
+                ("Shishya: open Sheets", ["open", "sheet"], None),
+                ("Shishya: open Reports", ["open", "reports"], None),
+                ("Shishya: teach a lesson", ["open", "shishya"], "ctrl+alt+t"),
+                ("Shishya: run a lesson", ["run"], "ctrl+alt+l"),
+                ("Shishya: list lessons", ["lessons"], None)]
+
+
+def _seed_vscode_control(user):
+    """The `shishya` command for VS Code's terminal, and its tasks and
+    shortcuts. Returns the folder that holds the command."""
+    rt = _need_runtime()
+    ctl = VMDIR / "shell" / "ctl.py"
+    bin_dir = clone_home() / "bin"
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    (bin_dir / "shishya.cmd").write_text(f'@"{rt / "python.exe"}" -X utf8 "{ctl}" %*\r\n',
+                                         encoding="ascii")
+    tasks = user / "tasks.json"
+    if not tasks.exists():
+        body = {"version": "2.0.0", "tasks": [
+            {"label": label, "type": "process", "command": str(rt / "python.exe"),
+             "args": ["-X", "utf8", str(ctl), *args],
+             "presentation": {"reveal": "always" if args[0] in ("run", "lessons") else "silent",
+                              "panel": "shared", "clear": True},
+             "problemMatcher": []}
+            for label, args, _ in VSCODE_TASKS]}
+        tasks.write_text("// Shishya's tasks: each runs one `shishya` command (type `shishya help`\n"
+                         "// in the terminal). Add your own the same way.\n"
+                         + json.dumps(body, indent=2), encoding="utf-8")
+    keys = user / "keybindings.json"
+    if not keys.exists():
+        binds = [{"key": key, "command": "workbench.action.tasks.runTask", "args": label}
+                 for label, _, key in VSCODE_TASKS if key]
+        keys.write_text("// Shortcuts that run Shishya's tasks. Add your own the same way.\n"
+                        + json.dumps(binds, indent=2), encoding="utf-8")
+    return bin_dir
 
 
 def _embed_vscode(pid, wait=60):
@@ -486,6 +533,10 @@ def launch_app(name, *args):
     """
     if name == "vscode_app.py":
         return launch_vscode()
+    return _launch_clone_app(name, *args)
+
+
+def _launch_clone_app(name, *args):
     _require_running()
     rt = _need_runtime()
     target = APPS / name

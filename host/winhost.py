@@ -167,6 +167,34 @@ def _launch(vm, req):
                       detail=str(e)[:200])
 
 
+def _run_lesson(req):
+    """The clone asking for a taught lesson to be performed — from VS Code's
+    tasks and shortcuts (vm/shell/ctl.py). Untrusted like every request:
+    only a lesson that exists, started exactly as the panel's Run starts it,
+    so it shows on the home page and can be stopped there."""
+    try:
+        ask = json.loads(req.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        ask = {}
+    req.unlink(missing_ok=True)
+    lesson = str(ask.get("lesson", ""))
+    if not re.fullmatch(r"[A-Za-z0-9._-]{1,64}", lesson) or             not (TRACES / lesson / "procedure.json").exists():
+        ledger.record(ledger.DENY, "lesson.run", lesson[:60] or "?", actor="clone",
+                      detail="no such lesson")
+        return
+    ledger.record(ledger.INFO, "lesson.run", lesson, actor="clone",
+                  detail="asked for from inside the sandbox (VS Code)")
+    # This process's own panel — imported as "serve" by Shishya's window, run
+    # as __main__ by `python serve.py`. Never a second copy of it.
+    panel = sys.modules.get("serve") or sys.modules.get("__main__")
+    if not hasattr(panel, "start_lesson"):
+        return
+    out = panel.start_lesson(lesson)
+    if isinstance(out, dict) and out.get("error"):
+        ledger.record(ledger.DENY, "lesson.run.fail", lesson, actor="system",
+                      detail=out["error"][:200])
+
+
 def _watch():
     import vm
     busy = set()
@@ -188,6 +216,9 @@ def _watch():
 
             for req in sorted(paths.SHARED.glob(".launch-*.json")):
                 _launch(vm, req)
+
+            for req in sorted(paths.SHARED.glob(".run-*.json")):
+                _run_lesson(req)
 
             stop = paths.SHARED / ".shutdown-requested"
             if stop.exists():

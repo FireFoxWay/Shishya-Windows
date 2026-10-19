@@ -58,6 +58,7 @@ LAUNCHABLE = {
     "files_app.py": "Files",
     "activity_app.py": "Activity",
     "make_app.py": "Make a Document",
+    "vscode_app.py": "VS Code",
     "inbox_app.py": "Inbox",
     "code_app.py": "Code",
     "models_app.py": "Models",
