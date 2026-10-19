@@ -124,22 +124,13 @@ def read_look():
 
 
 def launch(target, *args):
-    """Start one of the clone's apps. It inherits this process's container,
-    job and environment — including where the screen is — so it lands here."""
+    """Start one of the clone's apps on this screen."""
     path = APPS / target
     if not path.exists():
         return False
-    if target == "browser_app.py":
-        # Not started from in here. A process started by the clone inherits
-        # the clone's token, and the clone's token has no network: the host
-        # starts the browser, with the web if browsing is allowed — the one
-        # decision the sandbox cannot make for itself.
-        (common.SHARED / ".launch-request").write_text(target, encoding="utf-8")
-        return True
-    log = open(Path(os.environ.get("TEMP", ".")) / f"{target}.log", "a", encoding="utf-8")
-    subprocess.Popen([sys.executable, str(path), *args], stdout=log, stderr=log,
-                     creationflags=common.NO_WINDOW)
-    return True
+    # Through the host (kit.open_app), which also decides whether the
+    # browser gets the web — the one decision the sandbox cannot make.
+    return kit.open_app(target, *args)
 
 
 # ─── the windows on this screen ─────────────────────────────────────────────

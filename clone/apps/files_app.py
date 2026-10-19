@@ -168,8 +168,7 @@ class FilesApp(kit.Window):
             return self.go(path)
         suffix = path.suffix.lower()
         if suffix in SHEETS:
-            subprocess.Popen([sys.executable, str(Path(__file__).parent / "sheet_app.py"),
-                              str(path)], creationflags=common.NO_WINDOW)
+            kit.open_app("sheet_app.py", path)
             self.note.setText(f"opening {path.name}…")
         elif suffix in READABLE:
             text, how = common.extract(path)

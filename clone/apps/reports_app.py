@@ -242,9 +242,8 @@ class ReportsApp(kit.Window):
             self.shown_col.insertWidget(at, pic)
             at += 1
         if out is not None:
-            self.shown_col.insertWidget(at, kit.button("Open the folder", lambda: subprocess.Popen(
-                [sys.executable, str(Path(__file__).parent / "files_app.py"), str(out)],
-                creationflags=common.NO_WINDOW)))
+            self.shown_col.insertWidget(at, kit.button(
+                "Open the folder", lambda: kit.open_app("files_app.py", out)))
 
 
 if __name__ == "__main__":

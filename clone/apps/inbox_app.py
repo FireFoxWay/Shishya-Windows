@@ -77,8 +77,7 @@ class InboxApp(kit.Window):
     def on_open(self):
         p = self.picked()
         if p:
-            subprocess.Popen([sys.executable, str(Path(__file__).parent / "files_app.py"),
-                              str(INBOX)], creationflags=common.NO_WINDOW)
+            kit.open_app("files_app.py", INBOX)
 
     def move_to(self, target, label):
         p = self.picked()

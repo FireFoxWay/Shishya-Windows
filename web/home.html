@@ -121,7 +121,7 @@ body.on-clone .dock-wrap { opacity: 0; pointer-events: none; transform: translat
 .desk {
   position: relative; z-index: 2; min-height: 100vh;
   padding: 18px 24px 150px; display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); grid-template-rows: auto 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); grid-template-rows: auto auto; align-content: start;
   gap: 22px; max-width: 1280px; margin: 0 auto; align-items: start;
 }
 .topbar { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
@@ -188,27 +188,31 @@ a.tile { text-decoration: none; color: var(--ink); }
 .source { font-size: 12.5px; color: var(--ink-2); }
 
 /* apps */
-.apps { padding: 18px; }
+/* The apps panel is exactly as tall as the greeting card beside it: it
+   adds no height of its own to the row (height 0) and fills the row the
+   card sets (min-height 100%); the list scrolls inside it. */
+.apps { padding: 18px 14px 14px 18px; height: 0; min-height: 100%; display: flex; flex-direction: column; }
 .apps-head { display: flex; align-items: baseline; justify-content: space-between; margin: 2px 4px 14px; }
 .apps h2 { font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); margin: 0; }
 .apps-head span { font-size: 12.5px; color: var(--ink-2); }
-.grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-auto-rows: 98px; grid-auto-flow: dense; gap: 10px; list-style: none; margin: 0; padding: 0; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); grid-auto-rows: 54px; gap: 8px;
+        list-style: none; margin: 0; padding: 0 4px 2px 0; flex: 1; min-height: 0; overflow-y: auto;
+        scrollbar-width: thin; align-content: start; }
 .tile {
-  position: relative; text-align: left; border-radius: 16px; padding: 13px 14px; background: var(--mica-tile);
-  border: 1px solid var(--line); display: flex; flex-direction: column; justify-content: space-between;
+  position: relative; text-align: left; border-radius: 14px; padding: 0 12px; background: var(--mica-tile);
+  border: 1px solid var(--line); display: flex; flex-direction: row; align-items: center; gap: 10px;
   transition: background .2s, transform .2s; min-width: 0; width: 100%; height: 100%;
 }
-.tile:hover { background: var(--mica-tile-hover); transform: translateY(-2px); }
+.tile:hover { background: var(--mica-tile-hover); }
 .tile:active { transform: translateY(0) scale(.98); }
 .tile[aria-busy="true"] { opacity: .7; }
-li.wide { grid-column: span 2; }
-li.tall { grid-row: span 2; }
-.tile .ic { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; background: var(--card); color: var(--ink); }
-.tile.hero { background: var(--butter); border-color: transparent; }
-.tile.soft { background: var(--mint); border-color: transparent; }
-.tile .name { font-weight: 600; font-size: 15px; display: block; }
-.tile .sub { font-size: 13px; color: var(--ink-2); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tile .badge { position: absolute; top: 12px; right: 12px; font-size: 12px; font-weight: 700; padding: 2px 9px; border-radius: 999px; background: var(--ink); color: var(--card); font-variant-numeric: tabular-nums; }
+.tile .ic { width: 30px; height: 30px; border-radius: 9px; flex: none; display: grid; place-items: center; background: var(--card); color: var(--ink); }
+.tile .name { font-weight: 600; font-size: 14px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile > span:not(.ic):not(.badge) { min-width: 0; flex: 1; }
+/* What each app shows is still read out (aria-label) and shown on hover
+   (title); on the tile itself it was most of the clutter. */
+.tile .sub { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.tile .badge { position: static; flex: none; font-size: 11.5px; font-weight: 700; padding: 1px 8px; border-radius: 999px; background: var(--ink); color: var(--card); font-variant-numeric: tabular-nums; }
 .tile .badge.warn { background: var(--peach); color: var(--ink); }
 .ic svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .bars { display: flex; align-items: flex-end; gap: 4px; height: 44px; margin: 6px 0 0; }
@@ -297,8 +301,8 @@ li.tall { grid-row: span 2; }
 
 @media (max-width: 900px) {
   .desk { grid-template-columns: minmax(0, 1fr); padding: 16px 16px 170px; }
-  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  li.tall { grid-row: span 1; }
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); overflow: visible; }
+  .apps { height: auto; min-height: 0; }
   .bars { display: none; }
   .seg.lim { display: none; }
 }
@@ -348,10 +352,6 @@ body.solid .tile { background: #FFFFFF; }
       <div class="picker who" id="whoPop" role="dialog" aria-labelledby="whoTitle">
         <h3 id="whoTitle" style="text-align:left;margin:0 0 10px">Who is at the counter</h3>
         <label>Your name<input id="nameInput" autocomplete="name" maxlength="60"></label>
-        <div class="modes" role="radiogroup" aria-label="Working as" id="roleGroup" style="padding:0">
-          <button role="radio" data-role="head" aria-checked="false">Head<small>can void, roll back, change the network</small></button>
-          <button role="radio" data-role="clerk" aria-checked="false">Clerk<small>the counter's everyday work</small></button>
-        </div>
         <div class="row" style="margin-top:10px"><button class="btn primary" id="whoSave">Save</button></div>
       </div>
       <span class="wx" aria-hidden="true">
@@ -397,7 +397,7 @@ body.solid .tile { background: #FFFFFF; }
   <section class="panel apps" aria-labelledby="appsTitle">
     <div class="apps-head"><h2 id="appsTitle">Apps</h2><span>open on the clone's screen</span></div>
     <ul class="grid" id="grid">
-      <li class="wide"><button class="tile hero" data-app="chat_app.py">
+      <li><button class="tile" data-app="chat_app.py">
         <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg></span>
         <span><span class="name">Shishya</span><span class="sub" data-sub="chat">Ask about your documents and books</span></span>
       </button></li>
@@ -405,7 +405,7 @@ body.solid .tile { background: #FFFFFF; }
         <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/></svg></span>
         <span><span class="name">Billing</span><span class="sub" data-sub="billing">GST counter</span></span>
       </button></li>
-      <li class="tall"><button class="tile" data-app="findings_app.py">
+      <li><button class="tile" data-app="findings_app.py">
         <span class="badge warn" data-badge="findings" hidden></span>
         <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg></span>
         <span><span class="name">Findings</span><span class="sub" data-sub="findings">What is wrong with your data</span><span class="sub" data-sub="findings2"></span></span>
@@ -423,7 +423,7 @@ body.solid .tile { background: #FFFFFF; }
         <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 10h16M10 4v16"/></svg></span>
         <span><span class="name">Sheets</span><span class="sub">Open a spreadsheet</span></span>
       </button></li>
-      <li class="wide"><button class="tile soft" data-app="make_app.py">
+      <li><button class="tile" data-app="make_app.py">
         <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5M10 13h6M10 17h6"/></svg></span>
         <span><span class="name">Make a Document</span><span class="sub">Excel, Word or PowerPoint from one sentence</span></span>
       </button></li>
@@ -452,7 +452,7 @@ body.solid .tile { background: #FFFFFF; }
         <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg></span>
         <span><span class="name">Settings</span><span class="sub">The clone's screen</span></span>
       </button></li>
-      <li class="wide"><button class="tile" data-app="shishya_app.py">
+      <li><button class="tile" data-app="shishya_app.py">
         <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></svg></span>
         <span><span class="name">Teach a lesson</span><span class="sub" data-sub="lessons">Do a job once; it writes down what it learned</span></span>
       </button></li>
@@ -472,7 +472,7 @@ body.solid .tile { background: #FFFFFF; }
         <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg></span>
         <span><span class="name">Browser</span><span class="sub" data-sub="browser">Only when you allow it</span></span>
       </button></li>
-      <li class="wide"><a class="tile" href="/panel">
+      <li><a class="tile" href="/panel">
         <span class="ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></span>
         <span><span class="name" style="color:var(--ink)">Control panel</span><span class="sub">Lessons, jobs, the ledger, files in and out, secrets</span></span>
       </a></li>
@@ -628,7 +628,10 @@ body.solid .tile { background: #FFFFFF; }
     // who
     const name = h.name || "there";
     $("userBtn").textContent = name;
-    $("userBtn").setAttribute("aria-label", `${h.name ? h.name : "Add your name"}, working as ${h.role}. Change`);
+    $("userBtn").setAttribute("aria-label", `${h.name ? h.name : "Add your name"}. Change your name`);
+    // One person runs this copy, so there is no Head/Clerk choice for now:
+    // whoever is here may do everything a head may (roll back, the network).
+    if (h.role && h.role !== "head" && !paint.raised) { paint.raised = true; call("role", { role: "head" }).catch(() => {}); }
 
     // what is next — real things first, a friendly line otherwise
     const next = [];
@@ -714,6 +717,7 @@ body.solid .tile { background: #FFFFFF; }
                      ...[...tile.querySelectorAll(".sub")].map(s => s.textContent),
                      ...[...tile.querySelectorAll(".badge:not([hidden])")].map(b => b.getAttribute("aria-label"))];
       tile.setAttribute("aria-label", parts.filter(Boolean).join(". "));
+      tile.title = parts.slice(1).filter(Boolean).join(" · ");
     });
     document.querySelectorAll(".stat").forEach(card => {
       const [k, v, d] = [...card.children].map(c => c.textContent);
@@ -988,24 +992,20 @@ body.solid .tile { background: #FFFFFF; }
 
   // ── who is at the counter ─────────────────────────────────────────────
   const whoPop = $("whoPop");
-  let chosenRole = null;
   const openWho = on => {
     whoPop.classList.toggle("open", on); $("userBtn").setAttribute("aria-expanded", on);
     if (on) {
-      $("nameInput").value = state?.name || ""; chosenRole = state?.role || "clerk";
-      document.querySelectorAll("#roleGroup [role=radio]").forEach(r => r.setAttribute("aria-checked", String(r.dataset.role === chosenRole)));
+      $("nameInput").value = state?.name || "";
       $("nameInput").focus();
     }
   };
   $("userBtn").onclick = () => openWho(!whoPop.classList.contains("open"));
-  radios($("roleGroup"), r => { chosenRole = r.dataset.role; });
   $("whoSave").onclick = async () => {
     try {
       const name = $("nameInput").value.trim();
       if (name !== (state?.name || "")) await call("profile/set", { name });
-      if (chosenRole && chosenRole !== state?.role) await call("role", { role: chosenRole });
       openWho(false); $("userBtn").focus();
-      toast(`${name || "Hello"} — working as ${chosenRole}.`);
+      toast(name ? `Hello, ${name}.` : "Saved.");
       refresh();
     } catch (e) { toast(e.message); }
   };

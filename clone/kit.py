@@ -340,6 +340,25 @@ def save_file(parent, title, suggested, pattern="All files (*)"):
     return Path(d.selectedFiles()[0]) if d.exec() and d.selectedFiles() else None
 
 
+def open_app(name, *args):
+    """Open another of the clone's apps on its screen.
+
+    On Windows this is a request to the host, never a process started from
+    in here: an AppContainer process may not create another, so a Popen
+    from inside failed silently and the app never came. The host starts it
+    into the same container and job (host/winhost.py). One file per request,
+    so two quick picks both land."""
+    if sys.platform == "win32":
+        req = common.SHARED / f".launch-{time.time_ns()}.json"
+        req.write_text(json.dumps({"app": name, "args": [str(a) for a in args]}),
+                       encoding="utf-8")
+        return True
+    import subprocess
+    subprocess.Popen([sys.executable, str(Path(__file__).parent / "apps" / name),
+                      *map(str, args)])
+    return True
+
+
 def _open_on(desk):
     """How many app windows are already on the clone's screen."""
     if sys.platform != "win32":

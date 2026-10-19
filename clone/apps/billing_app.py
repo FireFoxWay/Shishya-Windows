@@ -248,9 +248,7 @@ class BillingApp(kit.Window):
         if not path:
             self.status.setText(f"Nothing to print for {number}.")
             return
-        import subprocess
-        subprocess.Popen([sys.executable, str(Path(__file__).parent / "files_app.py"),
-                          str(path.parent)], creationflags=common.NO_WINDOW)
+        kit.open_app("files_app.py", path.parent)
         self.status.setText(f"{number} is ready to print — {path.name} in Work/Bills.")
 
     # ── bills ──

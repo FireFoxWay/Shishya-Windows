@@ -15,6 +15,8 @@ Each request is a file, read and removed, and every one lands in the ledger —
 the shared folder is the one channel between the two sides, as it always was.
 """
 
+import json
+import re
 import subprocess
 import sys
 import threading
@@ -85,11 +87,37 @@ def _synthesise(folder):
         ledger.record(ledger.ALLOW, "lesson.learned", folder.name, actor="system")
 
 
+def _launch(vm, req):
+    """The clone asking for one of its own apps (clone/kit.py open_app).
+
+    Written by the clone, so read as untrusted: only an app that exists in
+    the clone's own apps folder, started into the clone's own container —
+    the request can choose which of its apps, never anything else."""
+    try:
+        ask = json.loads(req.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        ask = {}
+    req.unlink(missing_ok=True)
+    name = str(ask.get("app", ""))
+    args = [str(a)[:500] for a in (ask.get("args") or [])[:4]]
+    if not re.fullmatch(r"[a-z]+_app\.py", name):
+        ledger.record(ledger.DENY, "app.launch", name[:60] or "?", actor="clone",
+                      detail="not one of the clone's apps")
+        return
+    ledger.record(ledger.INFO, "app.launch", name, actor="clone")
+    try:
+        vm.launch_app(name, *args)
+    except Exception as e:                              # noqa: BLE001
+        ledger.record(ledger.DENY, "app.launch.fail", name, actor="system",
+                      detail=str(e)[:200])
+
+
 def _watch():
     import vm
     busy = set()
     while True:
-        time.sleep(1.5)
+        # Often enough that a pick from the clone's Apps menu feels immediate.
+        time.sleep(0.4)
         try:
             for req in TRACES.glob("*/.synth-requested"):
                 folder = req.parent
@@ -103,14 +131,8 @@ def _watch():
                             busy.discard(f.name)
                     threading.Thread(target=work, daemon=True).start()
 
-            launch = paths.SHARED / ".launch-request"
-            if launch.exists():
-                name = launch.read_text(encoding="utf-8").strip()
-                launch.unlink(missing_ok=True)
-                if name == "browser_app.py":
-                    ledger.record(ledger.INFO, "app.launch", name, actor="clone",
-                                  detail="started by the host so the web can be granted")
-                    vm.launch_app(name)
+            for req in sorted(paths.SHARED.glob(".launch-*.json")):
+                _launch(vm, req)
 
             stop = paths.SHARED / ".shutdown-requested"
             if stop.exists():
