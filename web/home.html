@@ -101,7 +101,7 @@ body.on-clone .dock-wrap { opacity: 0; pointer-events: none; transform: translat
 
 /* the clone's page */
 .clone { background: #0b0c0e; color: #E9EBEE; display: grid; grid-template-rows: auto 1fr; }
-.clone-bar { display: flex; align-items: center; gap: 10px; padding: 12px 20px 12px 52px; flex-wrap: wrap; }
+.clone-bar { display: flex; align-items: center; gap: 10px; padding: 12px 52px; flex-wrap: wrap; }
 .clone-bar h2 { font-size: 15px; font-weight: 600; margin: 0 auto 0 4px; letter-spacing: .01em; }
 .clone-bar h2 small { font-weight: 400; color: #9AA0A7; margin-left: 8px; font-size: 13px; }
 .dark-chip { display: inline-flex; align-items: center; gap: 8px; min-height: 38px; padding: 0 14px; border-radius: 999px;
@@ -109,11 +109,15 @@ body.on-clone .dock-wrap { opacity: 0; pointer-events: none; transform: translat
 .dark-chip:hover { background: #26282C; }
 .dark-chip svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .dark-chip[aria-pressed="true"] { background: #E9EBEE; color: #0b0c0e; }
-.stage { position: relative; padding: 0 20px 18px 52px; min-height: 0; display: grid; }
-.stage img, .stage iframe { width: 100%; height: 100%; min-height: 0; display: block; object-fit: contain;
-                            border: 0; border-radius: 12px; background: #050607; outline: none; user-select: none; }
+.stage { position: relative; padding: 0 52px 18px; min-height: 0; display: grid; place-items: center; }
+/* The picture is exactly as big as the screen it shows — no grey box with
+   bars beside it — and edged like a display, not like a web image. */
+.stage img { min-height: 0; display: block;
+             border: 0; border-radius: 10px; background: #050607; outline: none; user-select: none;
+             box-shadow: 0 0 0 1px rgba(255,255,255,.07), 0 18px 50px rgba(0,0,0,.55); }
+.stage iframe { width: 100%; height: 100%; min-height: 0; display: block; border: 0; border-radius: 10px; background: #050607; }
 .stage img:focus-visible { box-shadow: 0 0 0 3px var(--accent); }
-.stage .note { position: absolute; inset: 0 20px 18px 52px; display: grid; place-items: center; text-align: center;
+.stage .note { position: absolute; inset: 0 52px 18px; display: grid; place-items: center; text-align: center;
                color: #9AA0A7; font-size: 15px; gap: 12px; padding: 20px; }
 .stage .note b { color: #E9EBEE; display: block; font-size: 18px; margin-bottom: 6px; }
 
@@ -802,6 +806,19 @@ body.solid .tile { background: #FFFFFF; }
   // ── the clone's screen: a picture of its window, and your hands on it ─
   const shot = $("cloneScreen");
   let control = true;
+  // The picture's size comes from the room the stage has, never from the
+  // last frame: asking for frames as wide as the picture already was would
+  // never grow past the first one. Pixel-exact on this display: the frame
+  // asked for is this many device pixels wide.
+  const fit = () => {
+    const st = $("stage"), cs = getComputedStyle(st);
+    const w = st.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+    const h = st.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+    const width = Math.max(0, Math.floor(Math.min(w, h * 1440 / 900)));
+    shot.style.width = width + "px"; shot.style.height = Math.floor(width * 900 / 1440) + "px";
+    return width;
+  };
+  addEventListener("resize", () => { if (shot.src) fit(); });
   const screenPump = (() => {
     let on = false, timer = null, iframe = null;
     const next = delay => {
@@ -809,7 +826,7 @@ body.solid .tile { background: #FFFFFF; }
       timer = setTimeout(() => {
         if (!on) return;
         if (document.visibilityState === "hidden") return next(1500);
-        shot.src = `/api/screen?w=${Math.round(Math.min(1440, shot.clientWidth * devicePixelRatio || 1440))}&t=${Date.now()}`;
+        shot.src = `/api/screen?w=${Math.round(fit() * devicePixelRatio) || 1440}&t=${Date.now()}`;
       }, delay);
     };
     // One frame in flight at a time: the next is asked for when this one

@@ -27,6 +27,7 @@ lock is read from process tokens rather than from nftables.
   stopping it         TerminateJobObject — nothing it started survives
 """
 
+import ctypes
 import json
 import os
 import shutil
@@ -34,6 +35,7 @@ import subprocess
 import sys
 import threading
 import time
+from ctypes import wintypes
 from pathlib import Path
 
 import paths
@@ -192,6 +194,22 @@ def _grant_folder_only(path):
                    capture_output=True, creationflags=winbox.CREATE_NO_WINDOW)
 
 
+def screen_scale():
+    """How many device pixels each of the clone's points gets: this display's
+    scale (2 at 200%), in quarter steps, never so large that the screen
+    popped out into a window of its own would not fit on this display."""
+    try:
+        user32 = ctypes.windll.user32
+        dpi = user32.GetDpiForSystem() / 96
+        work = wintypes.RECT()
+        user32.SystemParametersInfoW(0x0030, 0, ctypes.byref(work), 0)    # SPI_GETWORKAREA
+        fits = min((work.right - work.left) / 1440, (work.bottom - work.top - 60) / 900)
+        scale = max(1.0, min(dpi, fits))
+    except (OSError, AttributeError, ZeroDivisionError):
+        scale = 1.0
+    return f"{int(scale * 4) / 4:g}"
+
+
 def clone_env(**extra):
     """Everything a clone process is told, on top of what Windows needs.
 
@@ -215,10 +233,14 @@ def clone_env(**extra):
         "PYTHONUTF8": "1", "PYTHONIOENCODING": "utf-8",
         "PYTHONDONTWRITEBYTECODE": "1",
         "MPLCONFIGDIR": str(home / ".matplotlib"), "MPLBACKEND": "Agg",
-        # Pixels, not points. The clone's screen is frozen at 1440x900 because
-        # taught procedures reference on-screen layout; Windows scaling it to
-        # 150% would quietly change every coordinate a lesson recorded.
-        "QT_ENABLE_HIGHDPI_SCALING": "0", "QT_SCALE_FACTOR": "1", "QT_FONT_DPI": "96",
+        # The clone's screen is 1440x900 *points*, always: taught procedures
+        # reference its layout, and that must not change with the laptop.
+        # It is drawn at this display's sharpness, though — 2x on a 200%
+        # screen — so the picture in Shishya's window is shown pixel for
+        # pixel instead of stretched and soft. Qt's own factor, not
+        # Windows': the layout stays put, only the pixels multiply.
+        "QT_ENABLE_HIGHDPI_SCALING": "0", "QT_SCALE_FACTOR": screen_scale(),
+        "QT_FONT_DPI": "96",
         # Chromium's own sandbox cannot nest inside an AppContainer. The
         # container is the sandbox, exactly as the VM was on the Mac.
         "QTWEBENGINE_CHROMIUM_FLAGS": "--no-sandbox --disable-gpu",

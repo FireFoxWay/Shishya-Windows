@@ -90,6 +90,17 @@ def _grab(hwnd, client_only=True):
         user32.ReleaseDC(hwnd, wdc)
 
 
+POINTS_W = 1440          # the clone's screen, in points (clone/desktop.py W)
+
+
+def _scale(desk):
+    """Device pixels per point on the clone's screen — 2 when it is drawn
+    for a 200% display (winvm.screen_scale). The page speaks in points."""
+    rect = wintypes.RECT()
+    user32.GetClientRect(desk, ctypes.byref(rect))
+    return (rect.right - rect.left) / POINTS_W or 1.0
+
+
 def _origin(hwnd):
     pt = wintypes.POINT(0, 0)
     user32.ClientToScreen(hwnd, ctypes.byref(pt))
@@ -155,7 +166,9 @@ def capture(quality=80, max_width=None):
     if max_width and image.width > max_width:
         image = image.resize((max_width, round(image.height * max_width / image.width)))
     out = io.BytesIO()
-    image.save(out, "JPEG", quality=quality)
+    # Full colour resolution (4:4:4): the default halves it, and small text
+    # and thin lines on a dark screen came out smeared.
+    image.save(out, "JPEG", quality=quality, subsampling=0)
     return out.getvalue()
 
 
@@ -171,6 +184,8 @@ def _target(x, y):
     if not desk:
         return None, None
     dx, dy = _origin(desk)
+    k = _scale(desk)
+    x, y = x * k, y * k
     sx, sy = dx + int(x), dy + int(y)
     # Popups first: they sit on top of everything on the clone's screen.
     for pop in reversed(_popups(desk)):
@@ -217,7 +232,8 @@ def mouse(kind, x, y, button="left", delta=0):
     if kind in ("move", "up") and _drag["hwnd"]:
         hwnd = _drag["hwnd"]
         dx, dy = _origin(desk)
-        at = (dx + int(x), dy + int(y))
+        k = _scale(desk)
+        at = (dx + int(x * k), dy + int(y * k))
     else:
         hwnd, at = _target(x, y)
     if not hwnd:

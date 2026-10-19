@@ -347,7 +347,7 @@ class Handler(SimpleHTTPRequestHandler):
         q = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
         width = int((q.get("w") or ["0"])[0] or 0) or None
         try:
-            data = screen.capture(quality=78, max_width=width)
+            data = screen.capture(quality=88, max_width=width)
         except Exception as e:
             return self._json({"error": f"{type(e).__name__}: {e}"}, 500)
         if not data:
