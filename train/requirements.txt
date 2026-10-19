@@ -1,0 +1,12 @@
+# The training toolkit, in a venv of its own (see train/README.md).
+# PyTorch first, from pytorch.org, built for your CUDA:
+#   python -m pip install torch --index-url https://download.pytorch.org/whl/cu128
+transformers
+peft
+trl
+datasets
+accelerate
+bitsandbytes
+sentencepiece
+protobuf
+huggingface_hub

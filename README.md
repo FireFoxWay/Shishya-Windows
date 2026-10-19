@@ -16,11 +16,11 @@ with the network switched off.**
 
 ## Download for Windows
 
-**[⬇ Download Shishya-Setup-1.0.4.exe](https://github.com/FireFoxWay/Shishya-Windows/releases/latest/download/Shishya-Setup-1.0.4.exe)**
+**[⬇ Download Shishya-Setup-1.0.5.exe](https://github.com/FireFoxWay/Shishya-Windows/releases/latest/download/Shishya-Setup-1.0.5.exe)**
 (125 MB, Windows 10/11, per-user install, no administrator rights needed)
 
 Prefer no installer? Get the
-[portable zip](https://github.com/FireFoxWay/Shishya-Windows/releases/latest/download/Shishya-1.0.4-portable.zip)
+[portable zip](https://github.com/FireFoxWay/Shishya-Windows/releases/latest/download/Shishya-1.0.5-portable.zip)
 (188 MB), unzip it anywhere, and run `Shishya.exe`. All versions are on the
 [Releases page](https://github.com/FireFoxWay/Shishya-Windows/releases).
 
@@ -240,9 +240,18 @@ Models screen's **Test them on Shishya's jobs** runs every installed model
 on each job's real tasks inside the sandbox (`vm/shell/jobbench.py`) and
 gives each job the model that got the most right, fastest.
 
+### Training the code model
+
+`train/` fine-tunes the Code app's model on your own kind of files, on your
+own graphics card. It works from tasks with known answers, keeps only the
+scripts that print the right answer inside the sandbox, and trains a LoRA
+on those. On files it never trained on, the trained model got 74% right,
+against 59% for the model it replaced, even with the import repair. See
+[train/README.md](train/README.md).
+
 ### VS Code
 
-*Not in the 1.0.4 download yet* — build with `windows/build.ps1` to include it.
+*Not in the 1.0.5 download yet* — build with `windows/build.ps1` to include it.
 The real VS Code is bundled and runs **inside the sandbox** like every other
 app: no network, its settings and extensions in the clone's own home,
 `shared\work` as its folder, its window on the clone's screen. Open it from
