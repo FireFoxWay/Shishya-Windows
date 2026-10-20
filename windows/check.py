@@ -155,7 +155,8 @@ SHOP = """
     from pathlib import Path
     # A plain folder in the clone's real Temp: tempfile.mkdtemp's owner-only
     # ACL locks a sandboxed process out of the folder it just made.
-    tmp = Path(os.environ["SHISHYA_TEMP"]) / f"check-shared-{os.getpid()}"
+    import time as _t
+    tmp = Path(os.environ["SHISHYA_TEMP"]) / f"check-shared-{_t.time_ns()}"
     tmp.mkdir(parents=True)
     (tmp / "billing").mkdir(); (tmp / "work").mkdir(); (tmp / "training").mkdir()
     os.environ["SHISHYA_SHARED"] = str(tmp)

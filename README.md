@@ -248,13 +248,22 @@ release: tasks with known answers, only replies that pass the job's own check
 the right fact or honestly declines; a document with every given fact in it),
 a LoRA trained on those, and a comparison on held-out material against the
 model it would replace before it is shipped. The Models screen's **Get
-Shishya's trained models** downloads them; the results are in each release's
-notes. On files it never trained on, the trained code model got 74% right,
-against 59% for the model it replaced.
+Shishya's trained models** downloads them and gives each its job; the
+results are in each release's notes. On material none of them trained on:
+
+| Job | Trained model | Built on | Right | The model it replaces |
+|---|---|---|---|---|
+| Code | `shishya-code-trained` | Qwen2.5-Coder 7B | 74% | 59% |
+| Answers | `shishya-answers-trained` | DeepSeek-R1-0528-Qwen3 8B | 100% (89 of 89) | 99% (`deepseek-r1:8b`) |
+| Documents | `shishya-documents-trained` | Qwen3 4B Instruct | 82% (49 of 60) | 75% (`shishya-answers`) |
+| Answers, larger | `shishya-oss-trained` | gpt-oss 20B | 87% (71 of 82) | 82% (`gpt-oss:20b`) |
+
+The gpt-oss model is 14 GB and needs a 16 GB graphics card; it takes no job
+by itself — pick it for Answers on the Models screen if your machine runs it.
 
 ### VS Code
 
-*Not in the 1.0.5 download yet* — build with `windows/build.ps1` to include it.
+*Not in the release downloads yet* — build with `windows/build.ps1` to include it.
 The real VS Code is bundled and runs **inside the sandbox** like every other
 app: no network, its settings and extensions in the clone's own home,
 `shared\work` as its folder, its window on the clone's screen. Open it from
