@@ -170,7 +170,7 @@ An empty desktop with an **Apps** button in the bottom-left corner.
 | **Shishya** | teach a lesson, read it, edit it, run it |
 | **Make a Document** | describe what you need; get a real `.xlsx`, `.docx` or `.pptx` |
 | **Sheets** | open and edit spreadsheets instantly |
-| **LibreOffice Calc / Writer** | the real thing, warm-started |
+| **LibreOffice** | on the Mac only; on Windows, Sheets is what lessons drive |
 | **Activity** | the permission ledger, seen from inside |
 | **Settings** | wallpaper, accent, icon size — applied live |
 
@@ -240,14 +240,17 @@ Models screen's **Test them on Shishya's jobs** runs every installed model
 on each job's real tasks inside the sandbox (`vm/shell/jobbench.py`) and
 gives each job the model that got the most right, fastest.
 
-### Training the code model
+### Trained models
 
-`train/` fine-tunes the Code app's model on your own kind of files, on your
-own graphics card. It works from tasks with known answers, keeps only the
-scripts that print the right answer inside the sandbox, and trains a LoRA
-on those. On files it never trained on, the trained model got 74% right,
-against 59% for the model it replaced, even with the import repair. See
-[train/README.md](train/README.md).
+Each job's model is fine-tuned for Shishya's own work and published with the
+release: tasks with known answers, only replies that pass the job's own check
+(a script that prints the right answer in the sandbox; an answer that quotes
+the right fact or honestly declines; a document with every given fact in it),
+a LoRA trained on those, and a comparison on held-out material against the
+model it would replace before it is shipped. The Models screen's **Get
+Shishya's trained models** downloads them; the results are in each release's
+notes. On files it never trained on, the trained code model got 74% right,
+against 59% for the model it replaced.
 
 ### VS Code
 
@@ -355,7 +358,9 @@ dependency at a demo table.
 
 ## Status
 
-**Works, and is checked.** `./demo.sh check` runs 24 assertions in about a
+**Works, and is checked.** On Windows, `runtime\python.exe windows\check.py` (with
+Shishya open) exercises 23 advertised features for real and prints PASS or FAIL
+for each; on the Mac, `./demo.sh check` runs 24 assertions in about a
 minute — including typing a key into a real window and reading it back, and
 asking the *guest* whether the egress lock is on rather than remembering
 what it was told.
@@ -365,8 +370,10 @@ rollback; the permission ledger; the egress lock; document Q&A over dropped
 files; document generation (`.xlsx` / `.docx` / `.pptx`); **the executor**,
 which performs a taught procedure against live LibreOffice and reads each
 cell back to check it landed; GST billing, tax invoices, void and returns;
-stock audit, scheduled runs, alerts, backups; clerk/head roles with approvals
-between them; a Tally XML round trip; a six-screen ERP; and the terminal.
+stock audit, scheduled runs, alerts, backups; approvals (clerk/head roles are
+in the code; the switch is hidden while one person runs a copy); a Tally XML
+round trip; the shop screens (billing counter and bills, banking, credit,
+reports, findings); and the terminal.
 
 **It trains its own model.** Running someone else's model locally is ordinary
 now. `vm/forecast.py` trains a demand forecaster on the shop's own purchase
