@@ -16,11 +16,11 @@ with the network switched off.**
 
 ## Download for Windows
 
-**[⬇ Download Shishya-Setup-1.0.7.exe](https://github.com/FireFoxWay/Shishya-Windows/releases/latest/download/Shishya-Setup-1.0.7.exe)**
+**[⬇ Download Shishya-Setup-1.0.8.exe](https://github.com/FireFoxWay/Shishya-Windows/releases/latest/download/Shishya-Setup-1.0.8.exe)**
 (125 MB, Windows 10/11, per-user install, no administrator rights needed)
 
 Prefer no installer? Get the
-[portable zip](https://github.com/FireFoxWay/Shishya-Windows/releases/latest/download/Shishya-1.0.7-portable.zip)
+[portable zip](https://github.com/FireFoxWay/Shishya-Windows/releases/latest/download/Shishya-1.0.8-portable.zip)
 (188 MB), unzip it anywhere, and run `Shishya.exe`. All versions are on the
 [Releases page](https://github.com/FireFoxWay/Shishya-Windows/releases).
 
