@@ -195,7 +195,8 @@ class ModelsApp(kit.Window):
         words = {"downloading": f"Downloading {s.get('model', '')}: {s.get('pct', 0)}%",
                  "installing": f"Putting {s.get('model', '')} into Ollama…",
                  "done": "Trained models installed: " + ", ".join(s.get("models", [])),
-                 "failed": f"Could not get them: {s.get('error', '')}"}
+                 "failed": ("Installed: " + ", ".join(s["models"]) + ". " if s.get("models") else "")
+                           + f"Could not get: {s.get('error', '')}"}
         self.status.setText(words.get(s.get("state"), "Waiting for the host…"))
         if s.get("state") in ("done", "failed"):
             self.choice = json.loads(common.ROLES.read_text(encoding="utf-8")) if common.ROLES.exists() else {}

@@ -17,6 +17,7 @@ on the Models screen. Progress is in var/models-get.json for the panel.
 """
 
 import hashlib
+import http.client
 import json
 import os
 import subprocess
@@ -53,18 +54,44 @@ def manifest():
         return json.loads(r.read())
 
 
-def _fetch(url, dest, label, done_bytes, total):
+def _fetch(url, dest, label, done_bytes, total, tries=8):
+    """One release file, checked against its length. A connection that drops
+    — the laptop sleeping, the Wi-Fi changing — can end a read early with no
+    error at all, so a short file is resumed from where it stopped (a Range
+    request) instead of being joined in."""
     tmp = dest.with_suffix(dest.suffix + ".part-download")
-    with urllib.request.urlopen(url, timeout=60) as r, open(tmp, "wb") as fh:
-        while True:
-            chunk = r.read(1 << 20)
-            if not chunk:
-                break
-            fh.write(chunk)
-            done_bytes[0] += len(chunk)
-            if done_bytes[0] % (64 << 20) < (1 << 20):
-                _say(state="downloading", model=label, pct=round(100 * done_bytes[0] / max(1, total)))
+    tmp.unlink(missing_ok=True)
+    want = None
+    for attempt in range(tries):
+        have = tmp.stat().st_size if tmp.exists() else 0
+        if want is not None and have == want:
+            break
+        req = urllib.request.Request(url, headers={"Range": f"bytes={have}-"} if have else {})
+        try:
+            with urllib.request.urlopen(req, timeout=60) as r, open(tmp, "ab") as fh:
+                if have and r.status != 206:         # the server sent the whole file again
+                    fh.truncate(0)
+                    have = 0
+                want = have + int(r.headers["Content-Length"])
+                while chunk := r.read(1 << 20):
+                    fh.write(chunk)
+                    done_bytes[0] += len(chunk)
+                    if done_bytes[0] % (64 << 20) < (1 << 20):
+                        _say(state="downloading", model=label, pct=round(100 * done_bytes[0] / max(1, total)))
+        except (OSError, http.client.HTTPException, KeyError, ValueError):
+            time.sleep(min(60, 5 * (attempt + 1)))
+    if want is None or tmp.stat().st_size != want:
+        raise RuntimeError(f"{dest.name} did not download completely — try again")
     tmp.replace(dest)
+
+
+def _stay_awake(on):
+    """Hold off idle sleep while models download (several GB); per thread."""
+    try:
+        import ctypes
+        ctypes.windll.kernel32.SetThreadExecutionState(0x80000001 if on else 0x80000000)
+    except (AttributeError, OSError):
+        pass
 
 
 def _install(m, done_bytes, total):
@@ -98,28 +125,42 @@ def get(only=None):
     those named), then give each its job. One run at a time."""
     if not _lock.acquire(blocking=False):
         return {"error": "already downloading"}
+    _stay_awake(True)
     try:
         man = manifest()
         models = [m for m in man.get("models", []) if not only or m["name"] in only]
         total = sum(m["size"] for m in models)
-        done = [0]
+        done, installed, failed = [0], [], []
         ledger.record(ledger.ALLOW, "models.get", f"{len(models)} model(s), {total / 1e9:.1f} GB",
                       actor="guru", detail=f"from release {man.get('version')}")
         for m in models:
-            _install(m, done, total)
-        try:
-            roles = json.loads(ROLES.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            roles = {}
-        roles.update({m["job"]: m["name"] + ":latest" for m in models if m.get("job")})
-        ROLES.write_text(json.dumps(roles, indent=2), encoding="utf-8")
-        _say(state="done", models=[m["name"] for m in models], version=man.get("version"))
+            # One model failing does not hold back the others, and each takes
+            # its job as soon as it is in.
+            try:
+                _install(m, done, total)
+            except Exception as e:                      # noqa: BLE001
+                failed.append(f"{m['name']}: {str(e)[:150]}")
+                ledger.record(ledger.DENY, "models.get.fail", m["name"], actor="system", detail=str(e)[:200])
+                continue
+            installed.append(m["name"])
+            if m.get("job"):
+                try:
+                    roles = json.loads(ROLES.read_text(encoding="utf-8"))
+                except (OSError, ValueError):
+                    roles = {}
+                roles[m["job"]] = m["name"] + ":latest"
+                ROLES.write_text(json.dumps(roles, indent=2), encoding="utf-8")
+        if failed:
+            _say(state="failed", models=installed, error="; ".join(failed)[:300], version=man.get("version"))
+        else:
+            _say(state="done", models=installed, version=man.get("version"))
         return state()
     except Exception as e:                              # noqa: BLE001
         _say(state="failed", error=str(e)[:300])
         ledger.record(ledger.DENY, "models.get.fail", type(e).__name__, actor="system", detail=str(e)[:200])
         return state()
     finally:
+        _stay_awake(False)
         _lock.release()
 
 
