@@ -9,7 +9,6 @@ for you to say what it is for — keep it as work, or teach from it.
 """
 
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 

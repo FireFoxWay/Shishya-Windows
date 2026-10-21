@@ -18,10 +18,7 @@ The rule that matters more than either: the answer must come from the
 documents. Asked something the documents do not cover, it says so.
 """
 
-import math
-import re
 import threading
-from collections import Counter
 from pathlib import Path
 
 import gi

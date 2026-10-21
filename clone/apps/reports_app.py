@@ -14,7 +14,6 @@ re-reads the same file within the minute.
 
 import json
 import re
-import subprocess
 import sys
 import time
 from pathlib import Path

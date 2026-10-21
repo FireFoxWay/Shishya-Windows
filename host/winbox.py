@@ -39,7 +39,6 @@ import ctypes
 import os
 import subprocess
 import sys
-import time
 from ctypes import wintypes
 from pathlib import Path
 

@@ -21,7 +21,6 @@ beat a browser that simply fails to load anything.
 
 import subprocess
 import sys
-from pathlib import Path
 
 import gi
 gi.require_version("Gtk", "3.0")

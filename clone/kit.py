@@ -35,7 +35,7 @@ for p in (ROOT / "vm" / "shell", ROOT / "vm", HERE):
     if str(p) not in sys.path:
         sys.path.insert(0, str(p))
 
-from PySide6.QtCore import QEvent, QObject, QPoint, Qt, QTimer, Signal   # noqa: E402
+from PySide6.QtCore import QEvent, QObject, Qt, QTimer, Signal   # noqa: E402
 from PySide6.QtGui import QFont, QGuiApplication, QWindow               # noqa: E402
 from PySide6.QtWidgets import (QAbstractButton, QAbstractItemView, QApplication,   # noqa: E402
                                QCheckBox, QComboBox, QFrame, QHBoxLayout, QLabel,

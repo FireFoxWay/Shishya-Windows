@@ -28,7 +28,6 @@ can still read after the program that wrote it is gone.
 
 import csv
 import datetime as dt
-from pathlib import Path
 
 import common
 

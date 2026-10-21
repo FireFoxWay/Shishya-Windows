@@ -16,7 +16,6 @@ run on throwaway copies in the clone's own Temp folder.
 import argparse
 import json
 import os
-import shutil
 import sys
 import textwrap
 import time

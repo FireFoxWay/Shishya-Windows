@@ -15,10 +15,7 @@ part a model is good at; serialisation is the part a library is good at.
 """
 
 import json
-import re
 import threading
-import time
-from pathlib import Path
 
 import gi
 gi.require_version("Gtk", "3.0")

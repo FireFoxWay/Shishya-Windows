@@ -13,7 +13,6 @@ it is for: keep it as work, or teach from it.
 
 import shutil
 import subprocess
-from pathlib import Path
 
 import gi
 gi.require_version("Gtk", "3.0")

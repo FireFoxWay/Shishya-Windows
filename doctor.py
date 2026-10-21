@@ -17,9 +17,7 @@ records, the secret store, and the control panel's whole front end.
 """
 
 import importlib.util
-import json
 import locale
-import os
 import platform
 import shutil
 import socket

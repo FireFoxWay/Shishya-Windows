@@ -22,12 +22,7 @@ turn: a model this size asked to "analyse this data" wanders. Asked six
 specific questions, it answers six specific questions.
 """
 
-import subprocess
-import sys
-import tempfile
 import threading
-import time
-from pathlib import Path
 
 import gi
 gi.require_version("Gtk", "3.0")

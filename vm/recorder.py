@@ -28,6 +28,11 @@ import os
 import signal
 import sys
 import time
+
+try:
+    import pyatspi          # AT-SPI: there inside the sandbox, not on the host
+except ImportError:
+    pyatspi = None
 from pathlib import Path
 
 TRACES = Path("/home/clone/shared/traces")
@@ -91,7 +96,6 @@ def ancestry(acc, limit=8):
 
 def text_of(acc):
     try:
-        import pyatspi
         t = acc.queryText()
         return t.getText(0, t.characterCount)[:400]
     except Exception:
@@ -269,9 +273,10 @@ class Recorder:
 
 
 def start(label):
-    try:
-        import pyatspi
-    except ImportError:
+    # Imported at the top, not here: is_noise() needs it too, and as a name
+    # local to start() it raised NameError there, which the catch-all turned
+    # into "noise" — every piece of typed text was dropped from the trace.
+    if pyatspi is None:
         sys.exit("pyatspi missing — this runs inside the sandbox, not on the host")
 
     rec = Recorder(label)

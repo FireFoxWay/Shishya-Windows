@@ -19,7 +19,6 @@ hundred kilobytes a day, a copy you can open in any spreadsheet beats a
 format that needs this program back to restore it.
 """
 
-import csv
 import json
 import shutil
 import sys

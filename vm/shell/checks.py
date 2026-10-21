@@ -140,7 +140,6 @@ def check_duplicate_names():
                         if len(value) < 4 or value.upper() == "N/A":
                             continue
                         counts[stem][value] += 1
-            wb_name = path.name
             for stem, tally in counts.items():
                 grouped = defaultdict(list)
                 for value, n in tally.items():

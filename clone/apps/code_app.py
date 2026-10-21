@@ -7,7 +7,6 @@ machine. Here it runs inside the AppContainer — no route to your files, no
 network — so you can run it, read the output, and decide.
 """
 
-import re
 import sys
 import tempfile
 import time
@@ -15,7 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import kit   # noqa: E402
-from PySide6.QtCore import QRegularExpression, QTimer   # noqa: E402
+from PySide6.QtCore import QRegularExpression   # noqa: E402
 from PySide6.QtGui import QColor, QFont, QSyntaxHighlighter, QTextCharFormat   # noqa: E402
 from PySide6.QtWidgets import QHBoxLayout, QPlainTextEdit, QVBoxLayout   # noqa: E402
 

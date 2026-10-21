@@ -15,7 +15,6 @@ monitoring is telling you about itself.
 import json
 import os
 import shutil
-import time
 
 import gi
 gi.require_version("Gtk", "3.0")

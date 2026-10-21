@@ -47,6 +47,22 @@ WINDOWS = sys.platform == "win32"
 # drop cannot fill the disk the VM is running on.
 MAX_UPLOAD = 64 * 1024 * 1024
 
+# Who may talk to this server. Loopback keeps other machines out, but not
+# other web pages: any site open in the person's browser can send requests to
+# 127.0.0.1:8200 — a GET from an <img>, a text/plain POST that needs no CORS
+# preflight — and this API can roll the clone back, run commands on saved SSH
+# hosts, open the network lock and decide approvals. So a request must name
+# this server as its Host (which defeats DNS rebinding), must not be marked
+# by the browser as coming from another site, and anything that changes
+# state must be a POST: a GET only ever reaches the routes in READS. Shishya's
+# own pages are same-origin and its own programs send no Origin at all.
+LOCAL_NAMES = ("127.0.0.1", "localhost", "[::1]")
+READS = {
+    "status", "inbox", "job/progress", "home", "dashboard", "money", "hosts", "profile",
+    "schedules", "alerts", "tasks", "experiments", "history", "secrets", "approvals",
+    "take/list", "lessons", "lesson/progress", "ledger", "models/state", "sandbox", "limits",
+}
+
 # An explicit list, not "whatever file name you send". This endpoint runs a
 # program inside the sandbox; it takes a choice from a menu, never a path.
 LAUNCHABLE = {
@@ -233,9 +249,32 @@ class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=WEB, **kwargs)
 
+    # ─── who is asking ──────────────────────────────────────────────────────
+
+    def _from_here(self):
+        """True for Shishya's own pages and programs on this machine; see READS."""
+        port = self.server.server_address[1]
+        if (self.headers.get("Host") or "").lower() not in {f"{n}:{port}" for n in LOCAL_NAMES}:
+            return False
+        if (self.headers.get("Sec-Fetch-Site") or "same-origin") not in ("same-origin", "none"):
+            return False
+        origin = self.headers.get("Origin")
+        return origin is None or origin.lower() in {f"http://{n}:{port}" for n in LOCAL_NAMES}
+
+    def _refuse(self):
+        ledger.record(ledger.DENY, "panel.foreign", self.path.split("?")[0][:80], actor="system",
+                      detail=f"from {self.headers.get('Origin') or self.headers.get('Host') or 'unknown'}"[:200])
+        return self._json({"error": "requests to Shishya come from Shishya's own window"}, 403)
+
     # ─── API ────────────────────────────────────────────────────────────────
 
     def do_GET(self):
+        if not self._from_here():
+            return self._refuse()
+        bare = self.path.split("?")[0]
+        if (bare.startswith("/api/") and bare[len("/api/"):].strip("/") not in READS
+                and bare not in ("/api/job/file", "/api/take", "/api/screen")):
+            return self._json({"error": "this changes something, so it must be a POST"}, 405)
         # Produced files ride a query string, which the JSON router strips.
         if self.path.split("?")[0] == "/api/job/file":
             return self.job_file()
@@ -272,6 +311,8 @@ class Handler(SimpleHTTPRequestHandler):
         self.wfile.write(data)
 
     def do_POST(self):
+        if not self._from_here():
+            return self._refuse()
         # Uploads are raw bytes, not JSON, so they bypass the usual API path.
         if self.path.split("?")[0] == "/api/upload":
             return self.upload()

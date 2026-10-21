@@ -29,7 +29,6 @@ people working a till, and for a record of who asked for what.
 import json
 import time
 import uuid
-from pathlib import Path
 
 import common
 
