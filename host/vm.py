@@ -614,9 +614,13 @@ def job_file(job_id, name):
     if not JOB_ID.match(job_id or ""):
         raise VMError(f"not a job id: {job_id!r}")
     safe = Path(name or "").name
-    path = (JOBS / job_id / "out" / safe).resolve()
-    if not str(path).startswith(str((JOBS / job_id / "out").resolve())) \
-            or not path.is_file():
+    try:
+        # The same resolve-then-parent test as take_file: a string prefix
+        # let a sibling folder ("out-old") or a symlink into one pass.
+        path = _inside(JOBS / job_id / "out", safe)
+    except VMError:
+        path = None
+    if path is None or not path.is_file():
         raise VMError(f"no such file {safe!r} in job {job_id}")
     return path
 

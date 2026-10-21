@@ -57,6 +57,8 @@ MAX_UPLOAD = 64 * 1024 * 1024
 # state must be a POST: a GET only ever reaches the routes in READS. Shishya's
 # own pages are same-origin and its own programs send no Origin at all.
 LOCAL_NAMES = ("127.0.0.1", "localhost", "[::1]")
+WINDOWS_DEVICES = {"CON", "PRN", "AUX", "NUL", *(f"COM{i}" for i in range(1, 10)),
+                   *(f"LPT{i}" for i in range(1, 10))}
 READS = {
     "status", "inbox", "job/progress", "home", "dashboard", "money", "hosts", "profile",
     "schedules", "alerts", "tasks", "experiments", "history", "secrets", "approvals",
@@ -103,6 +105,9 @@ def safe_filename(raw):
     name = os.path.basename(raw).strip()
     name = re.sub(r"[^A-Za-z0-9._ ()-]", "_", name)
     name = name.lstrip(".") or "dropped-file"
+    # CON, NUL, COM1… are devices on Windows, not files, even with an extension.
+    if name.split(".")[0].strip().upper() in WINDOWS_DEVICES:
+        name = "_" + name
     return name[:120]
 
 

@@ -30,7 +30,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import kit   # noqa: E402
 from PySide6.QtCore import Qt   # noqa: E402
-from PySide6.QtWidgets import (QAbstractItemView, QHBoxLayout, QLineEdit,   # noqa: E402
+from PySide6.QtWidgets import (QAbstractItemDelegate, QAbstractItemView, QHBoxLayout, QLineEdit,   # noqa: E402
                                QTableWidget, QTableWidgetItem, QTabWidget, QVBoxLayout)
 
 import common   # noqa: E402
@@ -104,9 +104,15 @@ class Grid(QTableWidget):
 
     def closeEditor(self, editor, hint):
         super().closeEditor(editor, hint)
-        if hint == QAbstractItemView.EditNextItem:
-            return
-        if hint in (QAbstractItemView.SubmitModelCache, QAbstractItemView.NoHint):
+        # The hints live on QAbstractItemDelegate.EndEditHint. Read from
+        # QAbstractItemView they raised AttributeError on every committed
+        # cell, so Enter after typing never moved down a row.
+        #
+        # Only Enter (SubmitModelCache) moves down. NoHint is the editor
+        # closing because focus went elsewhere — to the cell-contents line,
+        # say, which is how a lesson types — and moving then put the value
+        # in the row below the one it was meant for.
+        if hint == QAbstractItemDelegate.EndEditHint.SubmitModelCache:
             self.setCurrentCell(min(self.currentRow() + 1, self.rowCount() - 1), self.currentColumn())
 
     def values(self):

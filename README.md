@@ -314,6 +314,15 @@ unlocked. That measured indicator is the reason the bug was ever visible; an
 interface that reported what it had been told would have hidden it for
 months.
 
+**The panel itself only answers Shishya.** It listens on loopback, which
+keeps other machines out but not other web pages: any site open in your
+browser can send requests to `127.0.0.1:8200`. Until 1.0.8 one `<img>` could
+roll the clone back and a plain-text POST could open the egress lock, run a
+command on a saved SSH host or decide an approval. Now a request must name
+Shishya's own address as its Host (so DNS rebinding fails), must not be marked
+by the browser as coming from another site, and anything that changes state
+must be a POST. Every refusal is in the ledger as `panel.foreign`.
+
 ### The undo button
 
 Whole-VM snapshots, so a rollback also catches the app that had a document
