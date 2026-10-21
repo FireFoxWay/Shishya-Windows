@@ -46,6 +46,8 @@ def api(route, body=None, timeout=600):
 def record(name, ok, detail=""):
     RESULTS.append((name, ok, detail))
     print(f"{'PASS' if ok else 'FAIL'}  {name:<34} {str(detail)[:110]}", flush=True)
+    if not ok and len(str(detail)) > 110:
+        print("      " + str(detail).replace("\n", "\n      "), flush=True)   # the whole reason
 
 
 def check(name):
@@ -72,7 +74,7 @@ def in_sandbox(code, timeout=900):
                    caps=(), env=winvm.clone_env(), cwd=str(winvm.clone_home()), timeout=timeout)
     lines = [l for l in r["out"].splitlines() if l.startswith("{")]
     if not lines:
-        raise RuntimeError(r["out"].strip()[-300:] or f"exit {r['code']}")
+        raise RuntimeError(r["out"].strip()[-1500:] or f"exit {r['code']}")
     return json.loads(lines[-1])
 
 
@@ -373,12 +375,16 @@ def c_forecast():
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--quick", action="store_true", help="skip the model and snapshot checks")
+    ap.add_argument("--only", nargs="+", metavar="CHECK", help="run just these, e.g. --only answers documents")
     args = ap.parse_args()
     fast = [c_running, c_broker, c_egress, c_ledger, c_apps, c_live, c_billing, c_approvals,
             c_schedules, c_audit, c_alerts, c_backup, c_report, c_tally, c_lesson_plan, c_models,
             c_terminal, c_forecast]
     slow = [c_lesson_run, c_answers, c_documents, c_code, c_snapshot]
-    for c in fast + ([] if args.quick else slow):
+    chosen = fast + ([] if args.quick else slow)
+    if args.only:
+        chosen = [c for c in fast + slow if c.__name__.removeprefix("c_") in args.only]
+    for c in chosen:
         c()
     failed = [n for n, ok, _ in RESULTS if not ok]
     print(f"\n{len(RESULTS) - len(failed)} of {len(RESULTS)} passed" + (f"; failed: {', '.join(failed)}" if failed else ""))

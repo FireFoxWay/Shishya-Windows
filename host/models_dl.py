@@ -102,7 +102,8 @@ def _install(m, done_bytes, total):
         with open(gguf, "wb") as out:
             for part in m["parts"]:
                 piece = STORE / part
-                _fetch(RELEASE + part, piece, m["name"], done_bytes, total)
+                # A model unchanged since an earlier release stays in that one.
+                _fetch((m.get("base") or RELEASE) + part, piece, m["name"], done_bytes, total)
                 with open(piece, "rb") as fh:
                     while chunk := fh.read(1 << 20):
                         out.write(chunk)
