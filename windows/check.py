@@ -373,6 +373,9 @@ def c_forecast():
 
 
 def main():
+    # Answers can hold any character (the answers model writes "75 %" with a
+    # narrow no-break space); a console or log in cp1252 must not end the run.
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     ap = argparse.ArgumentParser()
     ap.add_argument("--quick", action="store_true", help="skip the model and snapshot checks")
     ap.add_argument("--only", nargs="+", metavar="CHECK", help="run just these, e.g. --only answers documents")
