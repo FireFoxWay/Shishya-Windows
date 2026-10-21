@@ -584,7 +584,8 @@ class Handler(SimpleHTTPRequestHandler):
             # Shishya's trained models from the latest release, into Ollama
             # (host/models_dl.py). The host downloads; the sandbox never does.
             import models_dl
-            return models_dl.get_in_background(body.get("only"))
+            which = body.get("which") if body.get("which") in ("jobs", "extras", "all") else "jobs"
+            return models_dl.get_in_background(body.get("only"), which)
 
         if route == "limits" and WINDOWS:
             # The dock's dials: the sandbox's share of this machine, changed

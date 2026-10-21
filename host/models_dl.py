@@ -121,15 +121,25 @@ def _install(m, done_bytes, total):
         raise RuntimeError(f"ollama create {m['name']} failed: {(r.stderr or r.stdout)[-200:]}")
 
 
-def get(only=None):
-    """Download and install every trained model in the latest release (or
-    those named), then give each its job. One run at a time."""
+def get(only=None, which="jobs"):
+    """Download and install the trained models in the latest release, then
+    give each its job. One run at a time.
+
+    which="jobs" (the default) is the models that take one of Shishya's jobs;
+    "extras" is the rest — gpt-oss, 14 GB and a 16 GB graphics card, which
+    nobody should download by surprise; "all" is both. Names in only= win."""
     if not _lock.acquire(blocking=False):
         return {"error": "already downloading"}
     _stay_awake(True)
     try:
         man = manifest()
-        models = [m for m in man.get("models", []) if not only or m["name"] in only]
+        models = man.get("models", [])
+        if only:
+            models = [m for m in models if m["name"] in only]
+        elif which == "extras":
+            models = [m for m in models if not m.get("job")]
+        elif which != "all":
+            models = [m for m in models if m.get("job")]
         total = sum(m["size"] for m in models)
         done, installed, failed = [0], [], []
         ledger.record(ledger.ALLOW, "models.get", f"{len(models)} model(s), {total / 1e9:.1f} GB",
@@ -165,6 +175,6 @@ def get(only=None):
         _lock.release()
 
 
-def get_in_background(only=None):
-    threading.Thread(target=get, args=(only,), daemon=True, name="models-get").start()
+def get_in_background(only=None, which="jobs"):
+    threading.Thread(target=get, args=(only, which), daemon=True, name="models-get").start()
     return {"started": True}

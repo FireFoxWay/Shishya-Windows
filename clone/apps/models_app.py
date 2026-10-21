@@ -97,6 +97,11 @@ class ModelsApp(kit.Window):
         self.status = kit.label("", role="muted", wrap=True)
         feet.addWidget(self.status, 1)
         feet.addWidget(kit.button("Get Shishya's trained models", self.on_get_trained))
+        larger = kit.button("Also the larger one (gpt-oss)", self.on_get_extras)
+        larger.setToolTip("Shishya's trained gpt-oss 20B: 14 GB to download, and it needs a "
+                          "graphics card with 16 GB. It takes no job by itself — pick it for "
+                          "Answers here once it is in.")
+        feet.addWidget(larger)
         feet.addWidget(kit.button("Test them on Shishya's jobs", self.on_test))
         feet.addWidget(kit.button("Remove", self.on_remove))
         feet.addWidget(kit.button("Add selected", self.on_add, primary=True))
@@ -182,8 +187,14 @@ class ModelsApp(kit.Window):
         """Ask the host for the models trained for Shishya's jobs. It
         downloads them from the release (several GB), checks each against its
         checksum, puts them into Ollama and gives each its job."""
-        (common.SHARED / ".models-get-requested").write_text("1", encoding="utf-8")
-        self.status.setText("Asked for Shishya's trained models — several GB; this can take a while.")
+        (common.SHARED / ".models-get-requested").write_text("jobs", encoding="utf-8")
+        self.status.setText("Asked for Shishya's trained models — about 12 GB; this can take a while.")
+        self._poll_get()
+
+    def on_get_extras(self):
+        """The trained models that take no job by themselves: gpt-oss, 14 GB."""
+        (common.SHARED / ".models-get-requested").write_text("extras", encoding="utf-8")
+        self.status.setText("Asked for the larger trained model (gpt-oss, 14 GB) — this takes a while.")
         self._poll_get()
 
     def _poll_get(self):

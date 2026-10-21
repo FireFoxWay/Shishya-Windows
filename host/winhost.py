@@ -220,10 +220,15 @@ def _watch():
             fetch = paths.SHARED / ".models-get-requested"
             if fetch.exists():
                 # The clone's Models app asking for the trained models: the
-                # host downloads them; the request carries no addresses.
+                # host downloads them; the request carries no addresses —
+                # one of two words, and anything else means the usual set.
+                try:
+                    asked = fetch.read_text(encoding="utf-8", errors="replace").strip()[:16]
+                except OSError:
+                    asked = ""
                 fetch.unlink(missing_ok=True)
                 import models_dl
-                models_dl.get_in_background()
+                models_dl.get_in_background(which="extras" if asked == "extras" else "jobs")
 
             for req in sorted(paths.SHARED.glob(".run-*.json")):
                 _run_lesson(req)

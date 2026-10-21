@@ -248,7 +248,9 @@ release: tasks with known answers, only replies that pass the job's own check
 the right fact or honestly declines; a document with every given fact in it),
 a LoRA trained on those, and a comparison on held-out material against the
 model it would replace before it is shipped. The Models screen's **Get
-Shishya's trained models** downloads them and gives each its job; the
+Shishya's trained models** downloads the three that do a job (about 12 GB),
+checks each against its checksum and gives it its job; a download that
+drops — Wi-Fi, a laptop that sleeps — resumes where it stopped. The
 results are in each release's notes. On material none of them trained on:
 
 | Job | Trained model | Built on | Right | The model it replaces |
@@ -258,8 +260,9 @@ results are in each release's notes. On material none of them trained on:
 | Documents | `shishya-documents-trained` | Qwen3 4B Instruct | 82% (49 of 60) | 75% (`shishya-answers`) |
 | Answers, larger | `shishya-oss-trained` | gpt-oss 20B | 87% (71 of 82) | 82% (`gpt-oss:20b`) |
 
-The gpt-oss model is 14 GB and needs a 16 GB graphics card; it takes no job
-by itself — pick it for Answers on the Models screen if your machine runs it.
+The gpt-oss model is 14 GB and needs a 16 GB graphics card, so it is never
+downloaded by surprise: **Also the larger one (gpt-oss)** on the Models
+screen fetches it, and it takes no job until you pick it for Answers there.
 
 ### VS Code
 
