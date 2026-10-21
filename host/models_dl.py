@@ -116,7 +116,7 @@ def _install(m, done_bytes, total):
     mf.write_text(f"FROM {gguf}\n{m['modelfile']}\n", encoding="utf-8")
     _say(state="installing", model=m["name"])
     r = subprocess.run([str(OLLAMA), "create", m["name"], "-f", str(mf)], capture_output=True,
-                       text=True, creationflags=0x08000000)
+                       text=True, encoding="utf-8", errors="replace", creationflags=0x08000000)
     if r.returncode:
         raise RuntimeError(f"ollama create {m['name']} failed: {(r.stderr or r.stdout)[-200:]}")
 

@@ -407,7 +407,7 @@ def _vscode_root_readable():
     file, and an AppContainer may not by default. One admin command grants
     the sandbox that and nothing more (the README says which)."""
     sid = winbox.container_sid()
-    p = subprocess.run(["icacls", "C:\\"], capture_output=True, text=True,
+    p = subprocess.run(["icacls", "C:\\"], capture_output=True, text=True, encoding="oem", errors="replace",
                        creationflags=winbox.CREATE_NO_WINDOW)
     return sid in (p.stdout or "")
 

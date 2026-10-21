@@ -300,7 +300,7 @@ def grant(path, write=False):
     # under it by itself. /T would also stamp it on every one of the
     # runtime's ten thousand files explicitly, for the same result, slowly.
     p = subprocess.run(["icacls", str(path), "/grant", f"*{sid}:{rights}", "/C", "/Q"],
-                       capture_output=True, text=True, creationflags=CREATE_NO_WINDOW)
+                       capture_output=True, text=True, encoding="oem", errors="replace", creationflags=CREATE_NO_WINDOW)
     if p.returncode != 0:
         raise SandboxError(f"could not grant {path}: {(p.stderr or p.stdout).strip()}")
     return {"path": str(path), "write": write}
@@ -309,7 +309,7 @@ def grant(path, write=False):
 def revoke(path):
     sid = container_sid()
     subprocess.run(["icacls", str(path), "/remove:g", f"*{sid}", "/T", "/C", "/Q"],
-                   capture_output=True, text=True, creationflags=CREATE_NO_WINDOW)
+                   capture_output=True, text=True, encoding="oem", errors="replace", creationflags=CREATE_NO_WINDOW)
     return {"path": str(path), "revoked": True}
 
 
@@ -317,7 +317,7 @@ def granted(path):
     """Does the container's SID appear on this folder's ACL? Read from the
     ACL itself, so the grant list shown in the panel is the real one."""
     sid = container_sid()
-    p = subprocess.run(["icacls", str(path)], capture_output=True, text=True,
+    p = subprocess.run(["icacls", str(path)], capture_output=True, text=True, encoding="oem", errors="replace",
                        creationflags=CREATE_NO_WINDOW)
     text = p.stdout or ""
     if sid in text:

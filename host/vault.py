@@ -87,7 +87,7 @@ def _owner_only(path):
 
 def _acl_lines(path):
     import subprocess
-    p = subprocess.run(["icacls", str(path)], capture_output=True, text=True,
+    p = subprocess.run(["icacls", str(path)], capture_output=True, text=True, encoding="oem", errors="replace",
                        creationflags=0x08000000)
     return [l.strip() for l in (p.stdout or "").splitlines()[:-2] if l.strip()]
 

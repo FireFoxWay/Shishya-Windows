@@ -254,6 +254,15 @@ class Handler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=WEB, **kwargs)
 
+    def handle(self):
+        # The page stopped wanting a reply part-way — a screen frame it moved
+        # past, a tab closed. Nothing to do, and a traceback for each one
+        # (114 in a few days of panel.log) buried the errors that matter.
+        try:
+            super().handle()
+        except (ConnectionAbortedError, ConnectionResetError, BrokenPipeError):
+            pass
+
     # ─── who is asking ──────────────────────────────────────────────────────
 
     def _from_here(self):
