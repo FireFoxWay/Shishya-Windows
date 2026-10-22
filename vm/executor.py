@@ -64,8 +64,27 @@ VERIFY_TIMEOUT = 6
 
 # ─── reading a step ─────────────────────────────────────────────────────────
 
-CELL = re.compile(r"\bcell\s+([A-Z]{1,3}\d{1,5})\b", re.I)
+# "cell C3", and the ways a learned step also says it: "cell reference C3",
+# "cell 'C3'".
+CELL = re.compile(r"\bcell(?:\s+ref(?:erence)?)?\s+['\"‘’“”]?([A-Z]{1,3}\d{1,5})\b", re.I)
 QUOTED = re.compile(r"['\"‘’“”]([^'\"‘’“”]{1,80})['\"‘’“”]")
+A_REF = re.compile(r"\b([A-Z]{1,3}[1-9]\d{0,4})\b")
+
+
+def cell_in(text):
+    """The cell a step names. A learned step says it its own way — "the cell
+    specified by C3", "cell at C3" — so in a sentence about a cell, the one
+    reference outside quotes is that cell. A quoted one is a value: typing
+    'ID2' is not going to ID2."""
+    text = text or ""
+    m = CELL.search(text)
+    if m:
+        return m.group(1).upper()
+    if re.search(r"\bcells?\b", text, re.I):
+        refs = set(A_REF.findall(QUOTED.sub(" ", text)))
+        if len(refs) == 1:
+            return refs.pop()
+    return None
 
 TYPING = ("type", "enter", "write", "input", "fill", "put")
 PRESSING = ("click", "press", "choose", "select the", "push")
@@ -81,6 +100,38 @@ APP_NAMES = sorted(("calc", "sheets", "spreadsheet", "excel", "files", "training
                     "teach", "task manager"), key=len, reverse=True)
 
 
+PLACEHOLDER = re.compile(r"(['\"‘’“”]?)\{(\w+)\}(['\"‘’“”]?)")
+A_CELL = re.compile(r"[A-Za-z]{1,3}\d{1,5}")
+
+
+def filled(step, parameters):
+    """The step with each {parameter} as it was when taught.
+
+    A lesson learned by demonstration says "Type '{amount}' into cell
+    {cell}" — what changes from one day to the next is a parameter, by
+    design (host/synth.py). Nothing supplies other values yet, so a run does
+    what was shown: the example the model took from the recording, which
+    synth.validate() has already checked appears in it. Left unfilled, no
+    learned lesson with a parameter in it could be performed at all.
+    """
+    values = {str(p.get("name")): str(p.get("example", "")) for p in parameters or []
+              if isinstance(p, dict) and p.get("name")}
+    text = step.get("text") or ""
+    if not values or "{" not in text:
+        return step
+
+    def put(m):
+        before, name, after = m.groups()
+        if name not in values:
+            return m.group(0)
+        value = values[name]
+        if before or after or A_CELL.fullmatch(value):
+            return f"{before}{value}{after}"            # already quoted, or a cell
+        quote = '"' if "'" in value else "'"
+        return f"{quote}{value}{quote}"                 # a value is read from quotes
+    return dict(step, text=PLACEHOLDER.sub(put, text))
+
+
 def understand(step):
     """Turn one written step into something performable, or None.
 
@@ -93,19 +144,23 @@ def understand(step):
     target = step.get("target") or {}
     named = (target.get("name") or "").strip()
 
-    cell = CELL.search(text) or CELL.search(named)
+    cell = cell_in(text) or cell_in(named)
     quoted = QUOTED.search(text)
 
     # "Type 'X' into cell I4" — the two together are one action.
     if any(v in low for v in TYPING) and quoted:
-        return {"do": "type", "value": quoted.group(1),
-                "cell": cell.group(1).upper() if cell else None, "text": text}
+        return {"do": "type", "value": quoted.group(1), "cell": cell, "text": text}
 
     if cell and any(v in low for v in ("navigate", "go to", "move to", "select")):
-        return {"do": "goto", "cell": cell.group(1).upper(), "text": text}
+        return {"do": "goto", "cell": cell, "text": text}
 
     if any(v in low for v in OPENING):
         what = quoted.group(1) if quoted else named
+        # The app's own name inside a longer label: a learned step's target
+        # reads "Sheets application" as often as "Sheets". A label naming no
+        # app ('report.xlsx') stays as it is, and fails as one.
+        what = next((n for n in APP_NAMES if re.search(rf"\b{re.escape(n)}\b", (what or "").lower())),
+                    what)
         if not what:
             what = next((n for n in APP_NAMES if re.search(rf"\b{re.escape(n)}\b", low)), None)
         if what:
@@ -418,6 +473,7 @@ def read_plan(proc):
     run refusing a different eight would be worse than no plan at all."""
     steps = []
     for i, step in enumerate(proc.get("steps", []), 1):
+        step = filled(step, proc.get("parameters"))
         action = understand(step)
         steps.append({
             "n": step.get("n", i),
@@ -485,8 +541,11 @@ def run(proc, on_event=None, ask_dir=None):
     taught = False        # did any answer rewrite a step?
     asked = 0             # questions put to the person so far
 
-    for i, step in enumerate(proc.get("steps", []), 1):
-        n = step.get("n", i)
+    for i, written in enumerate(proc.get("steps", []), 1):
+        n = written.get("n", i)
+        # Performed with its parameters filled in; an answer to a question
+        # below rewrites the written step, which is what gets saved.
+        step = filled(written, proc.get("parameters"))
         action = understand(step)
 
         # Ask only while someone is there to answer, and only a few times.
@@ -506,7 +565,7 @@ def run(proc, on_event=None, ask_dir=None):
                 new_text = answer["text"].strip()
                 action = understand({"text": new_text, "target": {}})
                 if action:
-                    step["text"] = new_text
+                    written["text"] = step["text"] = new_text
                     taught = True
                     emit({"kind": "taught", "n": n, "ok": True, "text": new_text,
                           "message": f"understood — the step now reads {new_text!r}"})

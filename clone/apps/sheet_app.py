@@ -82,9 +82,11 @@ class Grid(QTableWidget):
                 if value not in (None, ""):
                     self.setItem(r, c, QTableWidgetItem(str(value)))
         self.blockSignals(False)
-        self.currentCellChanged.connect(self.moved)
         self.itemChanged.connect(lambda *_: owner.edited())
+        # Placed in A1 before anyone is listening: a sheet opening is not the
+        # person choosing A1, and a lesson recorded it as a step they took.
         self.setCurrentCell(0, 0)
+        self.currentCellChanged.connect(self.moved)
 
     def current_ref(self):
         """The name the recorder and the Name Box use for where we are."""
@@ -131,6 +133,38 @@ class Grid(QTableWidget):
         return out[:last_row + 1]
 
 
+class NameBox(QLineEdit):
+    """The cell reference field. Clicked into, it selects the reference it
+    shows, as Calc's and Excel's do, so what is typed replaces it. It did
+    not: a click put the cursor after 'A1', typing C3 made it 'A1C3', and
+    Enter went nowhere — no cell is called that — so a lesson taught by
+    going to a cell went nowhere either."""
+
+    def __init__(self):
+        super().__init__()
+        self._take_all = False
+
+    def focusInEvent(self, e):
+        super().focusInEvent(e)
+        self.selectAll()
+        # The click that brought focus here would put the cursor where it
+        # landed, undoing the selection — so the release selects again.
+        self._take_all = e.reason() == Qt.MouseFocusReason
+
+    def mousePressEvent(self, e):
+        # A window Windows does not think is active gets the click and no
+        # FocusIn (kit.FocusOnClick); not having focus yet is the same click.
+        take = self._take_all or not self.hasFocus()
+        super().mousePressEvent(e)
+        self._take_all = take
+
+    def mouseReleaseEvent(self, e):
+        super().mouseReleaseEvent(e)
+        if self._take_all:
+            self._take_all = False
+            self.selectAll()
+
+
 class SheetApp(kit.Window):
     def __init__(self, path=None):
         super().__init__("Sheets", 1080, 640)
@@ -152,7 +186,7 @@ class SheetApp(kit.Window):
 
         # The Name Box and the value line, as in Calc and Excel.
         refs = QHBoxLayout()
-        self.name_box = QLineEdit()
+        self.name_box = NameBox()
         self.name_box.setObjectName("nameBox")
         self.name_box.setAccessibleName("Name Box")
         self.name_box.setFixedWidth(90)
@@ -193,6 +227,7 @@ class SheetApp(kit.Window):
         grid = self.grid()
         if not where or grid is None:
             self.say(f"{self.name_box.text()!r} is not a cell")
+            self.name_box.selectAll()           # so the next try replaces it
             return
         r, c = where
         if r >= grid.rowCount():

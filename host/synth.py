@@ -34,6 +34,8 @@ DEFAULT_MODEL = "deepseek-r1:8b"
 MIN_STEPS = 3
 MAX_TRIES = 4
 
+CELL_REF = re.compile(r"^\s*[A-Za-z]{1,3}\d{1,7}\s*$")
+
 
 class SynthError(RuntimeError):
     pass
@@ -167,6 +169,8 @@ def summarise(rows):
     steps = [r for r in rows if r.get("kind") == "step"]
 
     lines, buf, buf_target = [], [], None
+    last_app = None           # the app the previous observation was in
+    follows = None            # an app whose next selection is the last step's own doing
 
     def flush():
         nonlocal buf, buf_target
@@ -174,18 +178,60 @@ def summarise(rows):
             lines.append(f'typed "{"".join(buf)}" into {buf_target}')
             buf, buf_target = [], None
 
-    for s in steps:
+    for i, s in enumerate(steps):
         t = s.get("target") or {}
-        where = f'{t.get("role","?")} "{t.get("name","")}"'.strip()
+        role, name = t.get("role", "?"), t.get("name", "")
+        where = f'{role} "{name}"'.strip()
         app = s.get("app") or "?"
+        event = str(s.get("event"))
+        after = steps[i + 1] if i + 1 < len(steps) else {}
+        expected, follows = follows, None
+
+        # Selections the person did not choose: the cell a reference typed
+        # into the Name Box leads to (already said, as "went to"), and the
+        # cell below one just filled in, where Enter moves by itself.
+        if event == "object:selection-changed" and expected == app:
+            continue
+        # Being activated again, in the app the last step was already in.
+        if event == "window:activate" and app == last_app:
+            continue
+        # Moving to a field and then typing into it is one thing done: the
+        # typing says where.
+        if (event == "object:state-changed:focused" and str(after.get("event")) == "typed"
+                and (after.get("target") or {}).get("name") == name and after.get("app") == s.get("app")):
+            continue
+        last_app = app
+
+        if event == "app:opened":
+            flush()
+            lines.append(f"opened the {app} app")
+            continue
 
         # The recorder assembles keystrokes into whole entries itself now, so
         # a typed step arrives complete. LibreOffice never emits a text event
         # for cell entry, and these are the only record of what was written.
-        if str(s["event"]).startswith("typed") and isinstance(s.get("detail"), str):
+        if event.startswith("typed") and isinstance(s.get("detail"), str):
             flush()
-            cancelled = " (then cancelled)" if s["event"].endswith("cancelled") else ""
-            lines.append(f'typed "{s["detail"]}" into {where} in {app}{cancelled}')
+            text = s["detail"]
+            if event.endswith("cancelled"):
+                lines.append(f'typed "{text}" into {where} in {app} (then cancelled)')
+            elif name.lower() == "name box" and CELL_REF.match(text):
+                # A reference typed into the Name Box is going to that cell —
+                # said as only that. Told how, the model wrote steps about
+                # the box: "enter the name of the target cell", "navigate to
+                # the cell reference C3 in the Name Box".
+                lines.append(f"went to cell {text.strip().upper()} in {app}")
+                follows = app
+            elif role == "table cell" and CELL_REF.match(name):
+                lines.append(f'typed "{text}" into cell {name} in {app}')
+                follows = app
+            else:
+                lines.append(f'typed "{text}" into {where} in {app}')
+            continue
+
+        if event == "object:selection-changed" and role == "table cell" and CELL_REF.match(name):
+            flush()
+            lines.append(f"selected cell {name} in {app}")
             continue
 
         if s["event"] == "object:text-changed:insert" and isinstance(s.get("detail"), str):
@@ -227,8 +273,8 @@ on different data tomorrow.
 Rules:
 - Write each step the way a person would explain it to a new colleague. Say
   what they are accomplishing, not which widget was clicked.
-- Collapse fiddling into intent. Several clicks that add up to "find the
-  applicant's row" are ONE step.
+- Collapse fiddling into intent. Several clicks that add up to one purpose
+  are ONE step.
 - Anything specific to this run — a name, a number, a filename, a date — is a
   parameter, not a constant. Refer to it as {{parameter_name}} in the step text.
 - Add a "verify" to each step: how you would know it worked.
@@ -238,19 +284,25 @@ Rules:
   nothing, they were READING it — most likely checking it against something.
   Say that. Never write "edit" or "update" for a control nothing was typed
   into. A step that did not happen is worse than a step left out.
-- Write the way a colleague talks, not the way a manual reads. "Find the
-  applicant's row" — not "the user should navigate to the row such that".
+- Write the way a colleague talks, not the way a manual reads.
+- Only what the observations show. Examples in these rules are the form of
+  a step, never its content: nothing about them happened in this recording.
+- Each step is performed from its words, so where a step is one of these, say
+  it in this form: Open the 'Files' app / Go to cell B4 / Type 'Paid' into
+  cell B4 / Press 'Save'. A value typed and a control pressed go in quotes; a
+  cell is written as cell B4. A parameter keeps the form:
+  Type '{{amount}}' into cell {{cell}}.
 
 Return ONLY JSON of this shape:
 {{
   "title": "short name for the task",
   "parameters": [
-    {{"name": "applicant_name", "example": "value seen in this recording",
+    {{"name": "parameter_name", "example": "value seen in this recording",
       "description": "what this is"}}
   ],
   "steps": [
     {{"n": 1,
-      "text": "what to do, referring to parameters as {{applicant_name}}",
+      "text": "what to do, referring to parameters as {{parameter_name}}",
       "target": {{"role": "the kind of control", "name": "its label"}},
       "verify": "how you know this step worked"}}
   ]
@@ -310,6 +362,7 @@ def validate(proc, obs):
     user can see and correct beats an exception they cannot."""
     warnings = []
     haystack = " ".join(obs).lower()
+    declared = {p.get("name") for p in proc.get("parameters", [])}
 
     # A parameter whose example never appears in the recording was imagined.
     kept_params = []
@@ -323,6 +376,22 @@ def validate(proc, obs):
             continue
         kept_params.append(p)
     proc["parameters"] = kept_params
+
+    # A step about a value the model never even declared was imagined with
+    # it. Taught to put 57 in C3, it added "Navigate to the row containing
+    # the applicant named {applicant_name}" — no applicant anywhere in the
+    # recording; the words came from this prompt's own examples. A step
+    # whose parameter was declared but dropped above is only flagged below:
+    # that one may be real with its example misquoted.
+    grounded = []
+    for step in proc.get("steps", []):
+        unknown = [r for r in re.findall(r"\{(\w+)\}", step.get("text", "")) if r not in declared]
+        if unknown:
+            warnings.append(f"dropped step {step.get('text', '')[:60]!r} — it refers to "
+                            f"{{{unknown[0]}}}, which nothing in the recording supplies")
+            continue
+        grounded.append(step)
+    proc["steps"] = grounded
 
     # Near-duplicate steps: the model restating one action as two.
     #
@@ -415,6 +484,11 @@ def render(proc):
 
 
 if __name__ == "__main__":
+    # The rendering ticks each step's check with ✓, which a Windows console
+    # or pipe in cp1252 cannot encode: the print raised after procedure.json
+    # was written, the host saw the exit code, and every lesson taught on
+    # Windows was reported as a failed synthesis.
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     if len(sys.argv) < 2:
         sys.exit("usage: synth.py <trace-dir> [model]")
     model = sys.argv[2] if len(sys.argv) > 2 else DEFAULT_MODEL

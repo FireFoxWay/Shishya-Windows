@@ -380,7 +380,7 @@ dependency at a demo table.
 ## Status
 
 **Works, and is checked.** On Windows, `runtime\python.exe windows\check.py` (with
-Shishya open) exercises 23 advertised features for real and prints PASS or FAIL
+Shishya open) exercises 24 advertised features for real and prints PASS or FAIL
 for each; on the Mac, `./demo.sh check` runs 24 assertions in about a
 minute — including typing a key into a real window and reading it back, and
 asking the *guest* whether the egress lock is on rather than remembering
@@ -390,7 +390,8 @@ The sandbox and the clone's desktop; take-the-wheel; APFS snapshot and
 rollback; the permission ledger; the egress lock; document Q&A over dropped
 files; document generation (`.xlsx` / `.docx` / `.pptx`); **the executor**,
 which performs a taught procedure against live LibreOffice and reads each
-cell back to check it landed; GST billing, tax invoices, void and returns;
+cell back to check it landed; on Windows, teaching a lesson by doing it once
+in Sheets, then reading it back as steps and replaying it; GST billing, tax invoices, void and returns;
 stock audit, scheduled runs, alerts, backups; approvals (clerk/head roles are
 in the code; the switch is hidden while one person runs a copy); a Tally XML
 round trip; the shop screens (billing counter and bills, banking, credit,

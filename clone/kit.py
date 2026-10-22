@@ -567,6 +567,10 @@ class Recorder(QObject):
         self.poll.timeout.connect(self.check)
         self.poll.start(600)
         self.check()
+        # Started while a lesson was being taught: opening this app is part
+        # of the job. Said with its first step, so an app opened and never
+        # used — or the Teach app itself, which records nothing — says nothing.
+        self.opened = bool(self.fh)
 
     # ── on and off ──
     def check(self):
@@ -576,6 +580,7 @@ class Recorder(QObject):
             run = None
         if run == self.run:
             return
+        self.opened = False          # a lesson begun after this app opened
         if self.fh:
             self.flush()
             self.fh.close()
@@ -602,9 +607,18 @@ class Recorder(QObject):
         except Exception:
             return None
 
+    def began(self):
+        if self.opened and self.fh:
+            self.opened = False
+            self.n += 1
+            self.write({"kind": "step", "i": self.n, "t": round(time.time() - 0.001, 3),
+                        "event": "app:opened", "app": self.appname, "detail": None, "shot": None,
+                        "target": {"name": self.appname, "role": "application", "path": [], "text": None}})
+
     def step(self, event, target, widget=None, detail=None):
         if not self.fh:
             return
+        self.began()
         self.n += 1
         self.write({"kind": "step", "i": self.n, "t": round(time.time(), 3), "event": event,
                     "target": target, "app": self.appname, "detail": detail,
@@ -628,6 +642,7 @@ class Recorder(QObject):
         text, where = self.buffer, self.typing_at
         self.buffer, self.typing_at = "", None
         if text and self.fh:
+            self.began()
             self.n += 1
             self.write({"kind": "step", "i": self.n, "t": round(time.time(), 3),
                         "event": "typed" if committed else "typed-then-cancelled",
@@ -657,7 +672,12 @@ class Recorder(QObject):
             return False
         kind = ev.type()
         try:
-            if kind == QEvent.FocusIn and not _chrome(obj):
+            if kind == QEvent.FocusIn and not _chrome(obj) \
+                    and ev.reason() != Qt.ActiveWindowFocusReason:
+                # Not a window being activated handing focus back to its
+                # first or last control: that is the window, not the person
+                # (it was recorded as "moved to Open" on every new Sheets,
+                # and came back from the model as a step opening a file).
                 self.focused(obj)
             elif kind == QEvent.MouseButtonPress and not _chrome(obj):
                 # A window on the clone's screen that Windows does not think

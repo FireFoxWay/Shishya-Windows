@@ -341,6 +341,163 @@ def c_lesson_run():
     return ok, " | ".join(f"{e.get('n')}:{'ok' if e.get('ok') else 'X'} {e.get('message', '')[:40]}" for e in steps) or p
 
 
+# Teaching by demonstration, the way a person does it: name the job in Teach a
+# lesson, press Teach me, do it once on the clone's screen, press I'm done.
+# The doing goes through the panel's own screen/click and screen/key — the
+# route a person's hand takes when they work the clone from Shishya's window —
+# so the recorder sees what it would see from them, not a shortcut around it.
+TEACH = {"label": "Check: put 57 in C3", "cell": "C3", "value": "57"}
+
+
+def _waited(what, get, limit):
+    t = time.time()
+    while time.time() - t < limit:
+        got = get()
+        if got:
+            return got
+        time.sleep(0.5)
+    raise RuntimeError(f"{what} did not appear in {limit} s")
+
+
+def _window(title):
+    import hands
+    return _waited(f"the {title} window", lambda: hands.window_for(title), 40)
+
+
+def _control(hwnd, ident):
+    import hands
+    return _waited(f"{ident!r}", lambda: hands.by_id(hwnd, ident), 20)
+
+
+def _invoke(el):
+    import hands
+    _, U = hands._uia()
+    el.GetCurrentPattern(U.UIA_InvokePatternId).QueryInterface(U.IUIAutomationInvokePattern).Invoke()
+
+
+def _click(el):
+    """A click on the middle of a control, in the clone screen's own points —
+    what the page sends when a person clicks its picture of the screen."""
+    import hands
+    import screen
+    desk = hands.desktop()
+    r = el.CurrentBoundingRectangle
+    (dx, dy), k = screen._origin(desk), screen._scale(desk)
+    api("screen/click", {"x": ((r.left + r.right) / 2 - dx) / k,
+                         "y": ((r.top + r.bottom) / 2 - dy) / k})
+    time.sleep(0.5)
+
+
+def _keys(text="", then=None):
+    """Typed one key at a time, as the page forwards a person's keystrokes."""
+    for ch in text:
+        api("screen/key", {"text": ch})
+        time.sleep(0.08)
+    if then:
+        api("screen/key", {"name": then})
+    time.sleep(0.8)
+
+
+def _observations(folder):
+    """What the recorder saw, as the synthesiser reads it — the reason when
+    the lesson came out wrong."""
+    sys.path.insert(0, str(APP / "host"))
+    import synth
+    try:
+        return " / ".join(synth.summarise(synth.load(folder))[1])
+    except Exception as e:                               # noqa: BLE001
+        return f"(no trace: {e})"
+
+
+@check("lesson: taught by demonstration")
+def c_lesson_teach():
+    import shutil
+    import hands
+    _, U = hands._uia()
+    cell, value = TEACH["cell"], TEACH["value"]
+    flag = winvm.paths.SHARED / "traces" / ".recording"
+    # A clean screen: shown to one new sheet, replayed into another, so a
+    # value left in either cannot pass for the other having worked.
+    api("close", {"app": "sheet_app.py"})
+    api("close", {"app": "shishya_app.py"})
+    api("launch", {"app": "shishya_app.py"})
+    teach = _window("Teach a lesson")
+    _control(teach, "lessonName").GetCurrentPattern(U.UIA_ValuePatternId).QueryInterface(
+        U.IUIAutomationValuePattern).SetValue(TEACH["label"])
+    _invoke(_control(teach, "teachMe"))                       # Teach me
+    run = _waited("the recording flag", lambda: flag.exists() and json.loads(
+        flag.read_text(encoding="utf-8")).get("run"), 10)
+    folder = flag.parent / run
+    try:
+        # The lesson: open Sheets, go to C3 by its Name Box, type 57.
+        api("launch", {"app": "sheet_app.py"})
+        sheet = _window("Sheets")
+        box = _control(sheet, "nameBox")
+        time.sleep(1.5)                  # drawn, and its recorder has seen the flag
+        _click(box)
+        _keys(cell, "Return")
+        _keys(value, "Return")
+        shown = hands.cell_text(cell)
+        if shown != value:
+            return False, f"the demonstration did not land: {cell} reads {shown!r}"
+        _invoke(_control(teach, "teachMe"))                   # I'm done
+
+        # The host works out the procedure, with the model.
+        def learned():
+            if (folder / ".synth-error").exists():
+                raise RuntimeError("synthesis failed: " + (folder / ".synth-error").read_text(
+                    encoding="utf-8")[-300:] + " | saw: " + _observations(folder))
+            return (folder / "procedure.json").exists()
+        _waited("a procedure", learned, 600)
+        time.sleep(1)
+
+        # Read back as steps the executor can perform, with the value taught.
+        plan = api("lesson/plan", {"lesson": run})
+        steps = plan.get("steps", [])
+        said = " | ".join(f"{s.get('n')}.{'' if s.get('can') else '??'} {s.get('text')}" for s in steps)
+        at = None
+        for s in steps:
+            at = s.get("cell") or at
+            if s.get("do") == "type" and s.get("what") == value and at == cell:
+                break
+        else:
+            return False, f"no step types {value!r} into {cell}: {said} — saw: {_observations(folder)}"
+        if plan.get("doable") != plan.get("total"):
+            return False, f"{plan.get('doable')} of {plan.get('total')} performable: {said} — saw: {_observations(folder)}"
+
+        # Performed on a fresh sheet, and the cell read back.
+        api("close", {"app": "sheet_app.py"})
+        time.sleep(1)
+        if not any(s.get("do") == "open" for s in steps):
+            api("launch", {"app": "sheet_app.py"})
+            _window("Sheets")
+        out = api("lesson/run", {"lesson": run})
+        if out.get("error"):
+            return False, out["error"]
+        p = _waited("the end of the run", lambda: (lambda p: p.get("state") != "running" and p)(
+            api("lesson/progress")), 300)
+        events = [e for e in p.get("events", []) if e.get("kind") not in ("start", "done")]
+        back = hands.cell_text(cell)
+        ok = (len(events) == len(steps) and all(e.get("kind") == "step" and e.get("ok") for e in events)
+              and back == value)
+        detail = (f"{cell} reads {back!r}, replayed from " + " → ".join(
+                      f"{s.get('do')} {s.get('what')}" for s in steps) if ok else
+                  f"{cell} reads {back!r}; " + " | ".join(
+                      f"{e.get('n')}:{e.get('kind')}{'' if e.get('ok') else ' X'} {e.get('message', '')[:60]}"
+                      for e in events))
+        if ok:
+            shutil.rmtree(folder, ignore_errors=True)    # a check's lesson is not one of yours
+        return ok, detail
+    finally:
+        # Never leave every app on the screen recording.
+        try:
+            if json.loads(flag.read_text(encoding="utf-8")).get("run") == run:
+                flag.unlink(missing_ok=True)
+                api("close", {"app": "shishya_app.py"})
+        except (OSError, ValueError):
+            pass
+
+
 @check("the terminal: shishya board")
 def c_terminal():
     import subprocess
@@ -382,7 +539,7 @@ def main():
     fast = [c_running, c_broker, c_egress, c_ledger, c_apps, c_live, c_billing, c_approvals,
             c_schedules, c_audit, c_alerts, c_backup, c_report, c_tally, c_lesson_plan, c_models,
             c_terminal, c_forecast]
-    slow = [c_lesson_run, c_answers, c_documents, c_code, c_snapshot]
+    slow = [c_lesson_run, c_lesson_teach, c_answers, c_documents, c_code, c_snapshot]
     chosen = fast + ([] if args.quick else slow)
     if args.only:
         chosen = [c for c in fast + slow if c.__name__.removeprefix("c_") in args.only]
