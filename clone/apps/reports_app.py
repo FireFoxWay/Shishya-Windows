@@ -26,7 +26,16 @@ from PySide6.QtWidgets import (QCheckBox, QComboBox, QHBoxLayout, QLabel,   # no
                                QScrollArea, QSplitter, QVBoxLayout, QWidget)
 
 import common     # noqa: E402
-import reporter   # noqa: E402
+
+
+def _reporter():
+    """vm/reporter.py, loaded when first needed. It brings in the charting
+    and table libraries — three seconds here, more inside the sandbox — and
+    the window used to wait for all of it before it appeared, long enough
+    to look as if Reports had not opened."""
+    import reporter
+    return reporter
+
 
 CHARTABLE = {".xlsx", ".xlsm", ".csv", ".tsv", ".docx"}
 REPORTS = common.WORK / "Reports"
@@ -113,6 +122,7 @@ class ReportsApp(kit.Window):
 
         self.reload_files()
         self.show_schedules()
+        kit.background(_reporter)          # ready by the time a report is asked for
 
     def show_schedules(self):
         items = [i for i in read_schedules() if i.get("enabled", True)]
@@ -185,6 +195,7 @@ class ReportsApp(kit.Window):
         kit.background(lambda: self.make(picked, title), self.done)
 
     def make(self, picked, title):
+        reporter = _reporter()
         out = REPORTS / time.strftime("%Y%m%d-%H%M%S")
         out.mkdir(parents=True, exist_ok=True)
         sections, findings, skipped = [], [], []

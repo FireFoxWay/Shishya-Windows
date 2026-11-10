@@ -37,7 +37,7 @@ for p in (ROOT / "vm" / "shell", ROOT / "vm", HERE):
 
 from PySide6.QtCore import QEvent, QObject, QPointF, QRect, QRectF, Qt, QTimer, Signal   # noqa: E402
 from PySide6.QtGui import (QColor, QFont, QGuiApplication, QPainter, QPainterPath,   # noqa: E402
-                           QPalette, QPen, QWindow)
+                           QPalette, QPen, QPixmap, QWindow)
 from PySide6.QtWidgets import (QAbstractButton, QAbstractItemView, QApplication,   # noqa: E402
                                QCheckBox, QComboBox, QFrame, QHBoxLayout, QLabel,
                                QLineEdit, QPlainTextEdit, QPushButton, QTextEdit,
@@ -129,7 +129,36 @@ def look_accent():
         return ACCENT
 
 
-def stylesheet(accent=ACCENT):
+def tick_image():
+    """A white tick, as a file a stylesheet can name (and a second at twice
+    the size, which Qt picks on a 200% screen). Needs the QApplication."""
+    import tempfile
+    folder = Path(tempfile.gettempdir())
+    one = folder / "shishya-tick.png"
+    try:
+        for scale, path in ((1, one), (2, folder / "shishya-tick@2x.png")):
+            if path.exists():
+                continue
+            pm = QPixmap(16 * scale, 16 * scale)
+            pm.fill(Qt.transparent)
+            p = QPainter(pm)
+            p.setRenderHint(QPainter.Antialiasing)
+            p.scale(scale, scale)
+            pen = QPen(QColor("#ffffff"), 2)
+            pen.setCapStyle(Qt.RoundCap)
+            pen.setJoinStyle(Qt.RoundJoin)
+            p.setPen(pen)
+            p.drawPolyline([QPointF(3.6, 8.4), QPointF(6.8, 11.4), QPointF(12.4, 4.9)])
+            p.end()
+            mine = path.with_name(f"{path.stem}-{os.getpid()}.png")
+            pm.save(str(mine), "PNG")
+            os.replace(mine, path)           # several apps may be starting at once
+        return one.as_posix()
+    except Exception:                        # noqa: BLE001 — a box without a tick still shows as filled
+        return ""
+
+
+def stylesheet(accent=ACCENT, tick=""):
     wash = mix(accent, "#ffffff", 0.84)          # a selected row: the accent, mostly paper
     return f"""
 * {{ font-family: "Segoe UI Variable Text", "Segoe UI", "Inter", sans-serif; font-size: 13px;
@@ -215,6 +244,17 @@ QScrollBar::add-line, QScrollBar::sub-line {{ width: 0; height: 0; }}
 QScrollBar::add-page, QScrollBar::sub-page {{ background: transparent; }}
 
 QCheckBox, QRadioButton {{ spacing: 8px; background: transparent; }}
+QCheckBox::indicator, QRadioButton::indicator {{ width: 16px; height: 16px;
+    background: {SURFACE}; border: 1px solid #B9B3A4; }}
+QCheckBox::indicator {{ border-radius: 4px; }}
+QRadioButton {{ margin-right: 14px; }}
+QRadioButton::indicator {{ border-radius: 9px; }}
+QCheckBox::indicator:hover, QRadioButton::indicator:hover {{ border-color: {accent}; }}
+QCheckBox::indicator:checked {{ background: {accent}; border-color: {accent};
+                               image: url({tick}); }}
+QRadioButton::indicator:checked {{ width: 8px; height: 8px; border: 5px solid {accent}; }}
+QCheckBox::indicator:disabled, QRadioButton::indicator:disabled {{ background: #F1EEE6;
+                                                                   border-color: #DDD8CB; }}
 QMenu {{ background: {SURFACE}; border: 1px solid {RULE}; padding: 4px; }}
 QMenu::item {{ padding: 6px 18px; border-radius: 6px; }}
 QMenu::item:selected {{ background: {SOFT}; color: {INK}; }}
@@ -248,6 +288,8 @@ def palette(accent=ACCENT):
             (QPalette.Light, "#ffffff"), (QPalette.Midlight, SOFT), (QPalette.Mid, RULE),
             (QPalette.Dark, "#B9B3A4"), (QPalette.Shadow, "#8E897C")):
         pal.setColor(role, QColor(colour))
+    if hasattr(QPalette, "Accent"):          # what a ticked box and a chosen radio are filled with
+        pal.setColor(QPalette.Accent, QColor(accent))
     for role in (QPalette.WindowText, QPalette.Text, QPalette.ButtonText):
         pal.setColor(QPalette.Disabled, role, QColor("#A9A8A0"))
     return pal
@@ -455,7 +497,7 @@ def application(name):
     accent = look_accent()
     app.setPalette(palette(accent))
     app.setFont(QFont("Segoe UI", 10))
-    app.setStyleSheet(stylesheet(accent))
+    app.setStyleSheet(stylesheet(accent, tick_image()))
     _bridge = _Bridge()
     app._focus_on_click = FocusOnClick(app)
     app.installEventFilter(app._focus_on_click)

@@ -36,6 +36,7 @@ class InboxApp(kit.Window):
         self.view.setAccessibleName("Incoming files")
         self.view.setHorizontalHeaderLabels(["File", "Size"])
         self.view.setColumnWidth(0, 420)
+        self.view.horizontalHeader().setStretchLastSection(True)
         self.view.setEditTriggers(QTableWidget.NoEditTriggers)
         self.view.setSelectionBehavior(QTableWidget.SelectRows)
         self.view.verticalHeader().hide()

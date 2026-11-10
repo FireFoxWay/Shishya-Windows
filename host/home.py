@@ -134,6 +134,16 @@ def activity(state, lesson=None):
     return {"state": "breathing", "label": "Ready", "detail": "idle, and ready when you are"}
 
 
+def _alert_line(alert):
+    """One alert as a sentence. An alert is {"what": ..., "do": ..., "weight":
+    ...} (vm/alerts.py); this used to look for "text" or "message", find
+    neither, and put the whole dictionary on the home page as it prints."""
+    if not isinstance(alert, dict):
+        return str(alert or "").strip()
+    said = " — ".join(str(alert[k]).strip() for k in ("what", "do") if alert.get(k))
+    return said or str(alert.get("text") or alert.get("message") or "").strip()
+
+
 def everything(lesson=None):
     status = _safe(vm.status, {"state": "unknown"})
     state = status.get("state", "unknown")
@@ -153,7 +163,7 @@ def everything(lesson=None):
         "lessons": len(_safe(vm.lessons, [])),
         "low_stock": len(stock),
         "out_of_stock": sum(1 for r in stock if r.get("stock", 1) <= 0),
-        "alerts": [a.get("text") or a.get("message") or str(a) for a in alerts][:3],
+        "alerts": [line for line in map(_alert_line, alerts) if line][:3],
         "approvals": len(_safe(vm.pending_approvals, [])),
         "schedule": _safe(_next_schedule, None),
         "model": _model(),

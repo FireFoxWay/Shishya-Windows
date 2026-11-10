@@ -13,6 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import kit   # noqa: E402
+from PySide6.QtCore import Qt   # noqa: E402
 from PySide6.QtWidgets import (QFrame, QHBoxLayout, QProgressBar, QScrollArea,   # noqa: E402
                                QToolButton, QVBoxLayout, QWidget)
 
@@ -43,6 +44,14 @@ class FindingsApp(kit.Window):
         root.addWidget(self.progress)
         self.cards = QWidget()
         self.list = QVBoxLayout(self.cards)
+        empty = kit.label(
+            f"Nothing looked through yet.\n\nPress “Look through my data” and Shishya reads every "
+            f"spreadsheet in Work and Training Data, runs {len(checks.CHECKS)} checks on them — "
+            f"each a small program you can read — and lists here what it finds, worst first.",
+            role="muted", wrap=True)
+        empty.setAlignment(Qt.AlignCenter)
+        empty.setContentsMargins(60, 80, 60, 0)
+        self.list.addWidget(empty)
         self.list.addStretch(1)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)

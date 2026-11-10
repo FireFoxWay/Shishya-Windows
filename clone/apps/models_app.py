@@ -93,9 +93,10 @@ class ModelsApp(kit.Window):
         self.avail.setAccessibleName("Available models")
         root.addWidget(self.avail, 1)
 
-        feet = QHBoxLayout()
         self.status = kit.label("", role="muted", wrap=True)
-        feet.addWidget(self.status, 1)
+        root.addWidget(self.status)
+        feet = QHBoxLayout()
+        feet.addStretch(1)
         feet.addWidget(kit.button("Get Shishya's trained models", self.on_get_trained))
         larger = kit.button("Also the larger one (gpt-oss)", self.on_get_extras)
         larger.setToolTip("Shishya's trained gpt-oss 20B: 14 GB to download, and it needs a "

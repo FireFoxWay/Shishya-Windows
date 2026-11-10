@@ -190,6 +190,12 @@ class BillingApp(kit.Window):
             if w:
                 w.deleteLater()
         total = tax = 0.0
+        if not self.bill:
+            empty = kit.label("The bill is empty.\nClick a product on the left to add it.",
+                              role="muted", wrap=True)
+            empty.setAlignment(Qt.AlignCenter)
+            empty.setContentsMargins(20, 60, 20, 0)
+            self.lines.insertWidget(0, empty)
         for pid, qty in self.bill.items():
             item = self.by_id[pid]
             amount = books.number(item["price"]) * qty

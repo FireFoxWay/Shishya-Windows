@@ -629,6 +629,55 @@ class Orb(QPushButton):
         p.end()
 
 
+# The window each pinned app opens, by its title: how the dock knows a pinned
+# app is already open.
+PIN_TITLES = {"chat_app.py": "Shishya", "billing_app.py": "Billing", "inbox_app.py": "Inbox",
+              "files_app.py": "Files", "shishya_app.py": "Teach a lesson",
+              "make_app.py": "Make a Document"}
+
+
+class PinButton(QPushButton):
+    """A pinned app, in the dock. One click opens it; once it is open the
+    same button is its window's: forward, put away, back again."""
+
+    def __init__(self, name, target, icon, tint):
+        super().__init__()
+        self.name, self.target, self.icon_, self.tint = name, target, icon, tint
+        self.title = PIN_TITLES.get(target, name)
+        self.hwnd, self.hidden, self.top = 0, False, False
+        self.setAccessibleName(name)
+        self.setToolTip(name)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setFixedSize(44, 44)
+        self.clicked.connect(self.on_click)
+
+    def on_click(self):
+        if not self.hwnd:
+            open_entry(self.target)
+        elif self.top and not self.hidden:
+            kit.minimise_window(self.hwnd)
+        else:
+            kit.restore_window(self.hwnd)
+
+    def paintEvent(self, _e):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        if self.underMouse() or self.hasFocus():
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor(255, 255, 255, 20))
+            p.drawRoundedRect(QRectF(self.rect()).adjusted(1, 1, -1, -1), 12, 12)
+        if self.hidden:
+            p.setOpacity(0.55)
+        paint_icon(p, QRectF(8, 6, 28, 28), self.icon_, self.tint, radius=8)
+        p.setOpacity(1.0)
+        if self.hwnd:                    # open: a mark under it, bright when it is in front
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor(TINT["mint"][0]) if self.top and not self.hidden else QColor(MUTED))
+            wide = 12 if self.top and not self.hidden else 4
+            p.drawRoundedRect(QRectF(22 - wide / 2, self.height() - 5, wide, 3), 1.5, 1.5)
+        p.end()
+
+
 class TaskButton(QPushButton):
     """An open window, in the dock. Click to bring it forward; click the one
     already in front to put it away; click one that is put away to bring it
@@ -701,6 +750,11 @@ class Dock(QWidget):
         self.sep1.setFixedSize(1, 26)
         self.sep1.setStyleSheet(f"background: {EDGE};")
         row.addWidget(self.sep1)
+        # The six a counter reaches for, always one click away — the start
+        # panel is for everything else.
+        self.pins = [PinButton(*entry) for entry in PINNED]
+        for pin in self.pins:
+            row.addWidget(pin)
         self.tasks = QHBoxLayout()
         self.tasks.setSpacing(2)
         row.addLayout(self.tasks)
@@ -753,18 +807,25 @@ class Dock(QWidget):
         if windows != self.shown:
             self.shown = windows
             _drop(self.tasks)
-            for hwnd, title, hidden in windows[-7:]:
+            # A pinned app's window belongs to its pin; the rest get a button.
+            claimed = set()
+            for pin in self.pins:
+                match = next((w for w in windows if w[1] == pin.title and w[0] not in claimed), None)
+                pin.hwnd, pin.hidden = (match[0], match[2]) if match else (0, False)
+                if match:
+                    claimed.add(match[0])
+                pin.update()
+            for hwnd, title, hidden in [w for w in windows if w[0] not in claimed][-5:]:
                 self.tasks.addWidget(TaskButton(hwnd, title, hidden))
-            self.sep2.setVisible(bool(windows))
             QTimer.singleShot(0, self.recentre)
         # which one is on top: the last child in Windows' z-order is the first found
         top = user32.GetWindow(int(self.desktop.winId()), 5) if user32 else 0   # GW_CHILD
         while top and (top == mine or not user32.IsWindowVisible(top)):
             top = user32.GetWindow(top, 2)                                    # GW_HWNDNEXT
-        for i in range(self.tasks.count()):
-            b = self.tasks.itemAt(i).widget()
-            if isinstance(b, TaskButton) and b.top != (b.hwnd == top):
-                b.top = b.hwnd == top
+        buttons = [self.tasks.itemAt(i).widget() for i in range(self.tasks.count())] + self.pins
+        for b in buttons:
+            if isinstance(b, (TaskButton, PinButton)) and b.top != bool(b.hwnd and b.hwnd == top):
+                b.top = bool(b.hwnd and b.hwnd == top)
                 b.update()
 
     def on_start(self):

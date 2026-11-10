@@ -13,13 +13,15 @@ vm/shell/chat_app.py for why each turn is ONE constrained choice followed by
 a known code path rather than a loop.
 """
 
+import html
 import json
+import re
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import kit   # noqa: E402
-from PySide6.QtCore import QTimer   # noqa: E402
+from PySide6.QtCore import Qt, QTimer   # noqa: E402
 from PySide6.QtWidgets import (QFrame, QHBoxLayout, QPlainTextEdit, QScrollArea,   # noqa: E402
                                QSizePolicy, QVBoxLayout, QWidget)
 
@@ -73,8 +75,20 @@ def parts_of(text):
     return out or [(str(text), False)]
 
 
+BOLD = re.compile(r"\*\*(.+?)\*\*")
+
+
 def unfenced(text):
-    return "\n".join(line for line in str(text).splitlines() if line.strip() != FENCE)
+    """A reply as plain words: for the control the panel reads it back from."""
+    plain = "\n".join(line for line in str(text).splitlines() if line.strip() != FENCE)
+    return BOLD.sub(r"\1", plain)
+
+
+def rich(text):
+    """What the model emphasised, shown emphasised. The models mark a phrase
+    **like this**; nothing else of Markdown is honoured, because a file
+    called class_9b_term1.csv is not asking for italics."""
+    return BOLD.sub(r"<b>\1</b>", html.escape(text)).replace("\n", "<br>")
 
 
 class Bubble(QFrame):
@@ -108,16 +122,33 @@ class Bubble(QFrame):
                 block.setAccessibleName("program")
                 lines = piece.count("\n") + 1
                 block.setFixedHeight(min(lines, 18) * block.fontMetrics().lineSpacing() + 30)
-                block.setMinimumWidth(480)
+                # As wide as its longest line, so a program is read without
+                # scrolling sideways when there is room for it.
+                block.natural = int(max(len(line) for line in piece.splitlines()) * 7.4) + 44
                 self.col.addWidget(block)
             else:
-                lab = kit.label(piece, wrap=True)
+                lab = kit.label(rich(piece), wrap=True)
+                lab.setTextFormat(Qt.RichText)
+                piece = unfenced(piece)
+                # Its width if nothing wrapped. A wrapping label left to
+                # itself asks for a narrow column ("a good aspect ratio").
+                lab.natural = max(lab.fontMetrics().horizontalAdvance(line)
+                                  for line in piece.splitlines() or [""]) + 6
                 if doing:
                     lab.setProperty("role", "muted")
                 if first:
                     lab.setAccessibleName("yours" if self.who == "you" else "reply")
                 self.col.addWidget(lab)
             first = False
+        self.fit(self.maximumWidth())
+
+    def fit(self, limit):
+        """As wide as what is said, up to the limit; then it wraps."""
+        self.setMaximumWidth(limit)
+        for i in range(self.col.count()):
+            w = self.col.itemAt(i).widget()
+            if hasattr(w, "natural"):
+                w.setMinimumWidth(max(40, min(w.natural, limit - 30)))
 
 
 class ChatApp(kit.Window):
@@ -161,9 +192,9 @@ class ChatApp(kit.Window):
         # Things worth asking, from what is actually in Training Data — gone
         # once the conversation has started.
         self.chips = QWidget()
-        self.chip_row = QHBoxLayout(self.chips)
-        self.chip_row.setContentsMargins(0, 0, 0, 2)
-        self.chip_row.setSpacing(8)
+        self.chip_row = QVBoxLayout(self.chips)      # one under another: three abreast were wider than the screen
+        self.chip_row.setContentsMargins(0, 0, 0, 4)
+        self.chip_row.setSpacing(6)
         root.addWidget(self.chips)
 
         row = QHBoxLayout()
@@ -261,8 +292,7 @@ class ChatApp(kit.Window):
                               lambda a=ask: self.ask(a))
             chip.setObjectName("chip")
             chip.setToolTip(ask)
-            self.chip_row.addWidget(chip)
-        self.chip_row.addStretch(1)
+            self.chip_row.addWidget(chip, 0, Qt.AlignLeft)
         self.chips.setVisible(bool(asks) and not self.history and not self.busy)
 
     def ask(self, text):
@@ -277,7 +307,7 @@ class ChatApp(kit.Window):
         """No bubble wider than three quarters of the conversation."""
         limit = max(280, int(self.scroll.viewport().width() * 0.78))
         for b in self.bubbles:
-            b.setMaximumWidth(limit)
+            b.fit(limit)
 
     def say(self, who, text, doing=False):
         bubble = Bubble(who, text, doing)

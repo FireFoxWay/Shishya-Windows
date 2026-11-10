@@ -41,6 +41,11 @@ def put_status(job, **fields):
     tmp.replace(job / "status.json")
 
 
+def count(n, one, many):
+    """3 products are / 1 product is — never "product(s)"."""
+    return f"{n} {one if n == 1 else many}"
+
+
 def look():
     """Everything worth saying, most costly first."""
     found = []
@@ -55,7 +60,7 @@ def look():
         worst = ", ".join(s["name"] for s in out_of[:3])
         found.append({
             "weight": 100 + len(out_of),
-            "what": f"{len(out_of)} product(s) are out of stock",
+            "what": f"{count(len(out_of), 'product is', 'products are')} out of stock",
             "do": f"Order {worst}" + (" and others" if len(out_of) > 3 else ""),
         })
 
@@ -64,7 +69,8 @@ def look():
         cost = sum(max(s["reorder"] * 2 - s["stock"], 0) * s["cost"] for s in low)
         found.append({
             "weight": 50 + min(len(low), 40),
-            "what": f"{len(low)} product(s) are at or below their reorder point",
+            "what": f"{count(len(low), 'product is', 'products are')} at or below "
+                    f"{'its' if len(low) == 1 else 'their'} reorder point",
             "do": f"About ₹{books.money(cost)} to refill them all",
         })
 
@@ -97,7 +103,7 @@ def look():
             total = sum(books.number(c["balance"]) for c in owing)
             found.append({
                 "weight": 30,
-                "what": f"{len(owing)} customer(s) owe ₹{books.money(total)}",
+                "what": f"{count(len(owing), 'customer owes', 'customers owe')} ₹{books.money(total)}",
                 "do": "Khata balances outstanding",
             })
 
@@ -138,7 +144,7 @@ def main(job_dir):
             or "Nothing needs attention.")
     (out / "alerts.txt").write_text(said, encoding="utf-8")
     put_status(job, state="done", files=["alerts.txt"], empty=[], said=said,
-               step=f"done — {len(found)} thing(s) worth knowing")
+               step=f"done — {count(len(found), 'thing', 'things')} worth knowing")
     common.set_state("idle")
 
 

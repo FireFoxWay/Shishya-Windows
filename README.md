@@ -121,6 +121,19 @@ What changed to get there, so nobody has to rediscover it:
   published to UI Automation the way GTK was to AT-SPI. Their logic did not
   move: it was split out of the GTK files into `vm/shell/{library,documents,
   codegen,checks}.py` and both front ends use it. The Mac build is unchanged.
+- **The clone's screen is a desktop, not a canvas.** Its apps are child
+  windows of one window, and a child window gets nothing from Windows that a
+  window of yours has — so `clone/kit.py` is the frame: a title bar with the
+  app's icon, minimise, maximise, drag to the top edge to fill the screen or
+  a side edge for half of it, a corner to resize by, rounded corners. An app
+  opened twice is one window brought forward. The dock holds the six pinned
+  apps and every open window; a window put away keeps its button.
+- **One look, and it is light whatever the PC is set to.** The apps, the
+  desk and the home page share one palette (`clone/kit.py`): warm paper, ink,
+  the home page's tints. Qt follows Windows' dark mode for every widget a
+  stylesheet does not name, and until 1.1.0 the stylesheet named only some:
+  on a PC in dark mode the chat, Findings and the bill were black with dark
+  text on them. Every colour role is set now, and the light scheme is forced.
 - **Sheets is the clone's spreadsheet** — Name Box, A1 references, Enter
   moves down — because lessons are taught and performed against the same
   application, and LibreOffice is not part of the install.
