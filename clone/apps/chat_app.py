@@ -19,8 +19,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import kit   # noqa: E402
-from PySide6.QtCore import Qt, QTimer   # noqa: E402
-from PySide6.QtWidgets import (QHBoxLayout, QScrollArea, QVBoxLayout, QWidget)   # noqa: E402
+from PySide6.QtCore import QTimer   # noqa: E402
+from PySide6.QtWidgets import (QFrame, QHBoxLayout, QPlainTextEdit, QScrollArea,   # noqa: E402
+                               QSizePolicy, QVBoxLayout, QWidget)
 
 import codegen     # noqa: E402
 import common      # noqa: E402
@@ -58,6 +59,67 @@ def shortcut(request):
     return None
 
 
+FENCE = "```"          # a reply marks a program, or what it printed, like this
+
+
+def parts_of(text):
+    """A reply as (text, monospace?) pieces, split at the fences."""
+    out, mono = [], False
+    for piece in str(text).split(FENCE):
+        piece = piece.strip("\n")
+        if piece.strip():
+            out.append((piece, mono))
+        mono = not mono
+    return out or [(str(text), False)]
+
+
+def unfenced(text):
+    return "\n".join(line for line in str(text).splitlines() if line.strip() != FENCE)
+
+
+class Bubble(QFrame):
+    """One thing said: yours on the right in butter, Shishya's on the left on
+    paper. A program, or what one printed, is set in monospace inside it —
+    columns line up, and a long line scrolls instead of wrapping into noise."""
+
+    def __init__(self, who, text, doing=False):
+        super().__init__()
+        self.who = who
+        self.setObjectName("bubbleYou" if who == "you" else "bubbleShishya")
+        self.setProperty("doing", "true" if doing else "false")
+        self.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Minimum)
+        self.col = QVBoxLayout(self)
+        self.col.setContentsMargins(14, 10, 14, 10)
+        self.col.setSpacing(8)
+        self.set_text(text, doing)
+
+    def set_text(self, text, doing=False):
+        while self.col.count():
+            w = self.col.takeAt(0).widget()
+            if w:
+                w.deleteLater()
+        first = True
+        for piece, mono in parts_of(text):
+            if mono:
+                block = QPlainTextEdit(piece)
+                block.setObjectName("codeBlock")
+                block.setReadOnly(True)
+                block.setLineWrapMode(QPlainTextEdit.NoWrap)
+                block.setAccessibleName("program")
+                lines = piece.count("\n") + 1
+                block.setFixedHeight(min(lines, 18) * block.fontMetrics().lineSpacing() + 30)
+                block.setMinimumWidth(480)
+                self.col.addWidget(block)
+            else:
+                lab = kit.label(piece, wrap=True)
+                if doing:
+                    lab.setProperty("role", "muted")
+                if first:
+                    lab.setAccessibleName("yours" if self.who == "you" else "reply")
+                self.col.addWidget(lab)
+            first = False
+
+
 class ChatApp(kit.Window):
     def __init__(self):
         super().__init__("Shishya", 880, 700)
@@ -78,7 +140,10 @@ class ChatApp(kit.Window):
 
         self.thread = QWidget()
         self.lines = QVBoxLayout(self.thread)
+        self.lines.setContentsMargins(4, 8, 4, 8)
+        self.lines.setSpacing(10)
         self.lines.addStretch(1)
+        self.bubbles = []
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
         self.scroll.setWidget(self.thread)
@@ -88,7 +153,18 @@ class ChatApp(kit.Window):
         # with a name the hands know (host/hands.py read_chat).
         self.last = kit.label("", name="lastReply")
         self.last.setMaximumHeight(1)
+        # It holds a whole reply on one line; left to itself its width became
+        # the window's minimum, and the window opened wider than the screen.
+        self.last.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Fixed)
         root.addWidget(self.last)
+
+        # Things worth asking, from what is actually in Training Data — gone
+        # once the conversation has started.
+        self.chips = QWidget()
+        self.chip_row = QHBoxLayout(self.chips)
+        self.chip_row.setContentsMargins(0, 0, 0, 2)
+        self.chip_row.setSpacing(8)
+        root.addWidget(self.chips)
 
         row = QHBoxLayout()
         self.entry = kit.entry("Tell me what you need — in your own words", name="message",
@@ -106,6 +182,7 @@ class ChatApp(kit.Window):
         watch.start(3000)
         self.read_material()
         self.say("shishya", GREETING)
+        self.suggest()
 
     # ── material ──
     def read_material(self):
@@ -163,29 +240,65 @@ class ChatApp(kit.Window):
                                 f"documents now — ask me anything about them.")
 
     # ── the conversation ──
+    def suggest(self):
+        while self.chip_row.count():
+            item = self.chip_row.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+        tables = [f for f in self.files if f.lower().endswith((".xlsx", ".xls", ".csv"))]
+        texts = [f for f in self.files if f not in tables]
+        asks = []
+        if tables:
+            asks.append(f"How many rows are in {tables[0]}, and what are its columns?")
+        if texts:
+            asks.append(f"What does {texts[0]} say? Give me the main points.")
+        if texts:
+            asks.append(f"Make a short summary document of {texts[-1]}")
+        elif tables:
+            asks.append(f"Make a spreadsheet summarising {tables[-1]}")
+        for ask in asks[:3]:
+            chip = kit.button(ask if len(ask) <= 58 else ask[:57] + "…",
+                              lambda a=ask: self.ask(a))
+            chip.setObjectName("chip")
+            chip.setToolTip(ask)
+            self.chip_row.addWidget(chip)
+        self.chip_row.addStretch(1)
+        self.chips.setVisible(bool(asks) and not self.history and not self.busy)
+
+    def ask(self, text):
+        self.entry.setText(text)
+        self.on_send()
+
+    def resizeEvent(self, e):
+        super().resizeEvent(e)
+        self.fit()
+
+    def fit(self):
+        """No bubble wider than three quarters of the conversation."""
+        limit = max(280, int(self.scroll.viewport().width() * 0.78))
+        for b in self.bubbles:
+            b.setMaximumWidth(limit)
+
     def say(self, who, text, doing=False):
-        box = QWidget()
-        col = QVBoxLayout(box)
-        col.setContentsMargins(0, 0, 0, 0)
-        col.setSpacing(2)
-        head = kit.label("YOU" if who == "you" else "SHISHYA", role="section")
-        body = kit.label(text, wrap=True)
-        body.setAccessibleName("yours" if who == "you" else "reply")
-        if doing:
-            body.setProperty("role", "muted")
+        bubble = Bubble(who, text, doing)
+        row = QHBoxLayout()
+        row.setContentsMargins(0, 0, 0, 0)
         if who == "you":
-            col.setAlignment(Qt.AlignRight)
-            head.setAlignment(Qt.AlignRight)
-            body.setAlignment(Qt.AlignRight)
-        col.addWidget(head)
-        col.addWidget(body)
-        self.lines.insertWidget(self.lines.count() - 1, box)
+            row.addStretch(1)
+            row.addWidget(bubble)
+        else:
+            row.addWidget(bubble)
+            row.addStretch(1)
+        self.lines.insertLayout(self.lines.count() - 1, row)
+        self.bubbles.append(bubble)
+        self.fit()
         if who != "you":
-            self.last.setText(text)
-            self.last.setAccessibleName(text[:4000])
-        QTimer.singleShot(50, lambda: self.scroll.verticalScrollBar().setValue(
+            plain = unfenced(text)
+            self.last.setText(plain)
+            self.last.setAccessibleName(plain[:4000])
+        QTimer.singleShot(60, lambda: self.scroll.verticalScrollBar().setValue(
             self.scroll.verticalScrollBar().maximum()))
-        return body
+        return bubble
 
     def on_send(self):
         if self.busy:
@@ -194,6 +307,7 @@ class ChatApp(kit.Window):
         if not text:
             return
         self.entry.clear()
+        self.chips.setVisible(False)
         self.say("you", text)
         self.busy = True
         self.send.setEnabled(False)
@@ -202,7 +316,7 @@ class ChatApp(kit.Window):
         kit.background(lambda: self.work(text), self.finish)
 
     def update_working(self, text):
-        self.working.setText(text)
+        self.working.set_text(text, doing=True)
         self.last.setAccessibleName(text)
 
     def work(self, request):
@@ -278,13 +392,22 @@ class ChatApp(kit.Window):
                     code, out, err = fixed, out2, err2
         self.history.append(f"computed: {brief}")
         if err and not out:
-            return f"I wrote a program twice and it still failed:\n\n{code}\n\n{err}"
+            return (f"I wrote a program twice and it still failed.\n\n{FENCE}\n{code}\n{FENCE}"
+                    f"\n\nThe error:\n\n{FENCE}\n{err.strip()[-1500:]}\n{FENCE}")
         note = "" if attempts == 1 else "\n(the first attempt failed; this is the corrected one)"
-        return (f"I worked it out with a program:\n\n{out}\n\n— here is what I ran, so you "
-                f"can check it —{note}\n\n{code}")
+        return (f"I worked it out with a program:\n\n{FENCE}\n{out.strip()}\n{FENCE}\n\n"
+                f"Here is what I ran, so you can check it:{note}\n\n{FENCE}\n{code.strip()}\n{FENCE}")
 
     def finish(self, reply):
-        self.say("shishya", str(reply))
+        self.working.set_text(str(reply))            # the thinking bubble becomes the answer
+        self.working.setProperty("doing", "false")
+        self.working.style().unpolish(self.working)
+        self.working.style().polish(self.working)
+        plain = unfenced(reply)
+        self.last.setText(plain)
+        self.last.setAccessibleName(plain[:4000])
+        QTimer.singleShot(60, lambda: self.scroll.verticalScrollBar().setValue(
+            self.scroll.verticalScrollBar().maximum()))
         self.busy = False
         self.send.setEnabled(True)
         common.set_state("idle")

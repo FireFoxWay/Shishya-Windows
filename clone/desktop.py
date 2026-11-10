@@ -39,7 +39,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import kit   # noqa: E402
 from PySide6.QtCore import QDateTime, QPoint, QRect, QRectF, Qt, QTimer  # noqa: E402
 from PySide6.QtGui import (QColor, QFont, QGuiApplication, QLinearGradient,  # noqa: E402
-                           QPainter, QPainterPath, QPen, QRadialGradient)
+                           QPainter, QPen, QRadialGradient)
 from PySide6.QtWidgets import (QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit,  # noqa: E402
                                QMessageBox, QPushButton, QVBoxLayout, QWidget)
 
@@ -57,33 +57,8 @@ LOOK_VERSION = 2                       # 2: the apprentice's desk
 # Ink for the desk, and the home page's own tints for the things on it.
 INK, INK_LOW, CARD, EDGE = "#171B30", "#10132A", "#1E2340", "#2C3256"
 TEXT, MUTED, MARK = "#FBF7EC", "#A9A79C", "#1D2240"
-TINT = {"butter": ("#F3E3A6", "#633806"), "mint": ("#CFE8DA", "#085041"),
-        "peach": ("#F6CDB8", "#712B13"), "lav": ("#D6D2F4", "#3C3489"),
-        "paper": ("#E8E4D8", "#444441")}
-
-# Line icons, 24x24, the same drawings as the home page's tiles.
-ICONS = {
-    "chat": "M4 5h16v11H9l-5 4z",
-    "bill": "M6 3h12v18l-3-2-3 2-3-2-3 2z M9 8h6 M9 12h6",
-    "inbox": "M4 13l3-8h10l3 8v6H4z M4 13h5l1 2h4l1-2h5",
-    "folder": "M3 7h7l2 2h9v10H3z",
-    "teach": "M12 4a4 4 0 1 0 0.01 0z M4 21c1-4 4-6 8-6c4 0 7 2 8 6",
-    "doc": "M7 3h7l5 5v13H7z M14 3v5h5 M10 13h6 M10 17h6",
-    "find": "M11 5a6 6 0 1 0 0.01 0z M20 20l-4.5-4.5",
-    "chart": "M5 20V10 M12 20V4 M19 20v-7",
-    "sheet": "M4 4h16v16H4z M4 10h16 M10 4v16",
-    "book": "M4 6c3-2 5-2 8 0v13c-3-2-5-2-8 0z M12 6c3-2 5-2 8 0v13c-3-2-5-2-8 0z",
-    "code": "M8 8l-4 4 4 4 M16 8l4 4-4 4 M14 5l-4 14",
-    "bank": "M3 10l9-6 9 6 M5 10v8 M10 10v8 M14 10v8 M19 10v8 M3 20h18",
-    "card": "M3 6h18v13H3z M3 10h18 M7 15h4",
-    "pulse": "M3 12h4l3-7 4 14 3-7h4",
-    "globe": "M12 3a9 9 0 1 0 0.01 0z M3 12h18 M12 3c3 3 3 15 0 18 M12 3c-3 3-3 15 0 18",
-    "gauge": "M3 4h18v16H3z M7 15l3-4 3 2 4-5",
-    "model": "M12 9a3 3 0 1 0 0.01 0z M12 3v3 M12 18v3 M3 12h3 M18 12h3",
-    "sliders": "M4 7h10 M18 7h2 M4 17h2 M10 17h10 M16 5v4 M8 15v4",
-    "search": "M11 5a6 6 0 1 0 0.01 0z M20 20l-4.5-4.5",
-    "grid": "M4 4h7v7H4z M13 4h7v7h-7z M4 13h7v7H4z M13 13h7v7h-7z",
-}
+# The tints and the line icons are kit's: the apps' title bars use them too.
+TINT, ICONS, paint_icon, _path = kit.TINT, kit.ICONS, kit.paint_icon, kit.icon_path
 
 # (name, app, icon, tint). Pinned: the six a counter actually reaches for.
 PINNED = [
@@ -185,84 +160,51 @@ def open_entry(target):
 
 # ─── drawing ────────────────────────────────────────────────────────────────
 
-def paint_icon(p, rect, icon, tint, radius=None):
-    """A tinted rounded square with a line drawing in the tint's dark."""
-    fill, ink = TINT.get(tint, TINT["paper"])
-    r = QRectF(rect)
-    p.save()
-    p.setRenderHint(QPainter.Antialiasing)
-    p.setPen(Qt.NoPen)
-    p.setBrush(QColor(fill))
-    p.drawRoundedRect(r, radius or r.width() * 0.28, radius or r.width() * 0.28)
-    k = r.width() * 0.5 / 24
-    p.translate(r.x() + r.width() * 0.25, r.y() + r.height() * 0.25)
-    p.scale(k, k)
-    pen = QPen(QColor(ink), 1.8)
-    pen.setCapStyle(Qt.RoundCap)
-    pen.setJoinStyle(Qt.RoundJoin)
-    p.setPen(pen)
-    p.setBrush(Qt.NoBrush)
-    p.drawPath(_path(ICONS.get(icon, ICONS["grid"])))
-    p.restore()
+_desk = {}
 
 
-_paths = {}
+def desk_picture(scale=2):
+    """The still desk, drawn once: ink, a low glow — and a grain of noise.
 
-
-def _path(d):
-    """The small subset of SVG path syntax the icons above use."""
-    if d in _paths:
-        return _paths[d]
-    import re
-    path = QPainterPath()
-    x = y = sx = sy = 0.0
-    for cmd, args in re.findall(r"([MmLlHhVvZzAaCc])([^MmLlHhVvZzAaCc]*)", d):
-        nums = [float(n) for n in re.findall(r"-?\d*\.?\d+", args)]
-        if cmd in "Mm":
-            for i in range(0, len(nums), 2):
-                dx, dy = nums[i], nums[i + 1]
-                x, y = (x + dx, y + dy) if cmd == "m" else (dx, dy)
-                if i == 0:
-                    path.moveTo(x, y)
-                    sx, sy = x, y
-                else:
-                    path.lineTo(x, y)
-        elif cmd in "Ll":
-            for i in range(0, len(nums), 2):
-                dx, dy = nums[i], nums[i + 1]
-                x, y = (x + dx, y + dy) if cmd == "l" else (dx, dy)
-                path.lineTo(x, y)
-        elif cmd in "Hh":
-            for n in nums:
-                x = x + n if cmd == "h" else n
-                path.lineTo(x, y)
-        elif cmd in "Vv":
-            for n in nums:
-                y = y + n if cmd == "v" else n
-                path.lineTo(x, y)
-        elif cmd in "Cc":
-            for i in range(0, len(nums), 6):
-                c = nums[i:i + 6]
-                if cmd == "c":
-                    c = [c[0] + x, c[1] + y, c[2] + x, c[3] + y, c[4] + x, c[5] + y]
-                path.cubicTo(*c)
-                x, y = c[4], c[5]
-        elif cmd in "Aa":
-            # Only full circles are drawn with arcs here ("a r r 0 1 0 .01 0"):
-            # the centre is a radius to the right of where the arc starts.
-            for i in range(0, len(nums), 7):
-                rx = nums[i]
-                ex, ey = nums[i + 5], nums[i + 6]
-                if cmd == "a":
-                    ex, ey = ex + x, ey + y
-                path.addEllipse(QRectF(x - rx, y, 2 * rx, 2 * rx))
-                x, y = ex, ey
-                path.moveTo(x, y)
-        elif cmd in "Zz":
-            path.closeSubpath()
-            x, y = sx, sy
-    _paths[d] = path
-    return path
+    The gradient runs through about eight shades of ink over nine hundred
+    points, and eight shades drawn smoothly are eight visible bands, ringed
+    round the glow like a target. A point or two of noise per pixel breaks
+    the bands up; it is how every dark gradient that looks smooth is made.
+    """
+    if scale in _desk:
+        return _desk[scale]
+    from PySide6.QtGui import QImage, QPixmap
+    w, h = W * scale, H * scale
+    try:
+        import numpy as np
+        y, x = np.mgrid[0:h, 0:w].astype(np.float32)
+        t = (y / (h - 1))[..., None]
+        top = np.array([int(INK[i:i + 2], 16) for i in (1, 3, 5)], np.float32)
+        low = np.array([int(INK_LOW[i:i + 2], 16) for i in (1, 3, 5)], np.float32)
+        img = top + (low - top) * t
+        d = np.sqrt((x - w * 0.62) ** 2 + (y - h * 0.42) ** 2) / (w * 0.5)
+        a = (np.clip(1 - d, 0, 1) * (120 / 255))[..., None]
+        img = img * (1 - a) + np.array([46, 52, 98], np.float32) * a
+        img += np.random.default_rng(7).uniform(-1.6, 1.6, (h, w, 1)).astype(np.float32)
+        rgb = np.clip(np.rint(img), 0, 255).astype(np.uint8)
+        rgba = np.dstack([rgb, np.full((h, w, 1), 255, np.uint8)])
+        picture = QImage(rgba.tobytes(), w, h, w * 4, QImage.Format_RGBA8888).copy()
+    except Exception:                                   # noqa: BLE001 — banded beats blank
+        picture = QImage(w, h, QImage.Format_RGB32)
+        q = QPainter(picture)
+        g = QLinearGradient(0, 0, 0, h)
+        g.setColorAt(0, QColor(INK))
+        g.setColorAt(1, QColor(INK_LOW))
+        q.fillRect(0, 0, w, h, g)
+        glow = QRadialGradient(w * 0.62, h * 0.42, w * 0.5)
+        glow.setColorAt(0, QColor(46, 52, 98, 120))
+        glow.setColorAt(1, QColor(46, 52, 98, 0))
+        q.fillRect(0, 0, w, h, glow)
+        q.end()
+    pm = QPixmap.fromImage(picture)
+    pm.setDevicePixelRatio(scale)
+    _desk[scale] = pm
+    return pm
 
 
 def paint_desk(p, offset=QPoint(0, 0), live=None):
@@ -274,14 +216,7 @@ def paint_desk(p, offset=QPoint(0, 0), live=None):
     if live is not None:
         live.draw(p, W, H)
     else:
-        g = QLinearGradient(0, 0, 0, H)
-        g.setColorAt(0, QColor(INK))
-        g.setColorAt(1, QColor(INK_LOW))
-        p.fillRect(0, 0, W, H, g)
-        glow = QRadialGradient(W * 0.62, H * 0.42, W * 0.5)
-        glow.setColorAt(0, QColor(46, 52, 98, 120))
-        glow.setColorAt(1, QColor(46, 52, 98, 0))
-        p.fillRect(0, 0, W, H, glow)
+        p.drawPixmap(0, 0, desk_picture(2 if p.device().devicePixelRatioF() > 1 else 1))
     p.restore()
 
 
@@ -421,7 +356,7 @@ class StartPanel(QFrame):
     PW, PH, PH_ALL = 560, 384, 470
 
     def __init__(self, desktop):
-        super().__init__(desktop, Qt.Popup | Qt.FramelessWindowHint)
+        super().__init__(desktop, Qt.Popup | Qt.FramelessWindowHint | Qt.NoDropShadowWindowHint)
         self.desktop = desktop
         self.setAccessibleName("Apps")
         self.setObjectName("startPanel")
@@ -430,6 +365,7 @@ class StartPanel(QFrame):
             QLineEdit {{ background: {INK_LOW}; color: {TEXT}; border: 1px solid {EDGE};
                          border-radius: 12px; padding: 0 14px 0 6px; min-height: 40px;
                          font-size: 13px; selection-background-color: #3C3489; }}
+            QLineEdit:hover {{ border-color: {EDGE}; }}
             QLineEdit:focus {{ border-color: #6E74B8; }}
             QLabel {{ color: {MUTED}; font-size: 11px; background: transparent; }}
             QPushButton#link {{ background: transparent; color: {TEXT}; border: 0;
@@ -619,37 +555,13 @@ EnumProc = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM) \
 
 
 def open_windows(desk):
-    """The app windows parented into this screen, newest last. Asked of
-    Windows rather than tracked: an app the panel opened, or the executor
-    opened, must appear here too."""
-    out = []
-    if not user32:
-        return out
-
-    def each(h, _):
-        if user32.GetParent(h) == desk and user32.IsWindowVisible(h):
-            buf = ctypes.create_unicode_buffer(200)
-            user32.GetWindowTextW(h, buf, 200)
-            if buf.value:
-                out.append((int(h), buf.value))
-        return True
-    user32.EnumChildWindows(desk, EnumProc(each), 0)
-    return out
+    """The app windows on this screen, oldest first, as (handle, title,
+    minimised). Asked of Windows rather than tracked: an app the panel
+    opened, or the executor opened, must appear here too."""
+    return kit.desk_windows(desk)
 
 
-def raise_window(hwnd):
-    if user32:
-        user32.ShowWindow(hwnd, 9)                               # SW_RESTORE
-        user32.SetWindowPos(hwnd, 0, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0040)  # top
-        user32.SetFocus(hwnd)
-
-
-def icon_for(title):
-    t = title.lower()
-    for name, _target, icon, tint in ALL_APPS:
-        if name.lower() in t or t.startswith(name.lower()[:5]):
-            return icon, tint
-    return "grid", "paper"
+icon_for = kit.icon_for
 
 
 class Orb(QPushButton):
@@ -718,9 +630,13 @@ class Orb(QPushButton):
 
 
 class TaskButton(QPushButton):
-    def __init__(self, hwnd, title):
+    """An open window, in the dock. Click to bring it forward; click the one
+    already in front to put it away; click one that is put away to bring it
+    back."""
+
+    def __init__(self, hwnd, title, hidden=False):
         super().__init__()
-        self.hwnd, self.title = hwnd, title
+        self.hwnd, self.title, self.hidden = hwnd, title, hidden
         self.icon_, self.tint = icon_for(title)
         self.top = False
         self.setAccessibleName(title)
@@ -731,7 +647,13 @@ class TaskButton(QPushButton):
         self.label = title if len(title) <= 16 else title[:15] + "…"
         from PySide6.QtGui import QFontMetrics
         self.setFixedWidth(44 + QFontMetrics(f).horizontalAdvance(self.label) + 14)
-        self.clicked.connect(lambda: raise_window(self.hwnd))
+        self.clicked.connect(self.on_click)
+
+    def on_click(self):
+        if self.top and not self.hidden:
+            kit.minimise_window(self.hwnd)
+        else:
+            kit.restore_window(self.hwnd)
 
     def paintEvent(self, _e):
         p = QPainter(self)
@@ -740,12 +662,15 @@ class TaskButton(QPushButton):
             p.setPen(Qt.NoPen)
             p.setBrush(QColor(255, 255, 255, 20))
             p.drawRoundedRect(QRectF(self.rect()).adjusted(1, 1, -1, -1), 12, 12)
+        if self.hidden:
+            p.setOpacity(0.55)          # put away: still open, out of sight
         paint_icon(p, QRectF(8, 8, 28, 28), self.icon_, self.tint, radius=8)
         p.setPen(QColor(TEXT))
         p.setFont(font(13))
         p.drawText(QRectF(44, 0, self.width() - 48, self.height()),
                    Qt.AlignLeft | Qt.AlignVCenter, self.label)
-        if self.top:
+        p.setOpacity(1.0)
+        if self.top and not self.hidden:
             p.setPen(Qt.NoPen)
             p.setBrush(QColor(TINT["mint"][0]))
             p.drawRoundedRect(QRectF(22 - 6, self.height() - 4, 12, 3), 1.5, 1.5)
@@ -828,8 +753,8 @@ class Dock(QWidget):
         if windows != self.shown:
             self.shown = windows
             _drop(self.tasks)
-            for hwnd, title in windows[-6:]:
-                self.tasks.addWidget(TaskButton(hwnd, title))
+            for hwnd, title, hidden in windows[-7:]:
+                self.tasks.addWidget(TaskButton(hwnd, title, hidden))
             self.sep2.setVisible(bool(windows))
             QTimer.singleShot(0, self.recentre)
         # which one is on top: the last child in Windows' z-order is the first found

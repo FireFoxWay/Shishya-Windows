@@ -38,6 +38,8 @@ Standard library only: ctypes over kernel32, advapi32 and userenv.
 import ctypes
 import os
 import subprocess
+import threading
+import time
 import sys
 from ctypes import wintypes
 from pathlib import Path
@@ -235,24 +237,39 @@ def _sid_from_string(text):
     return psid          # LocalFree when done; kept alive by callers for a launch
 
 
+_container = {}
+_container_lock = threading.Lock()
+
+
 def ensure_container():
     """Create the AppContainer profile if it is not there. Returns its SID.
 
     No administrator rights: an AppContainer profile is per-user, which is
     the right scope — the clone belongs to whoever is signed in.
     """
-    psid = PSID()
-    hr = userenv.CreateAppContainerProfile(CONTAINER, DISPLAY,
-                                           "The clone's sandbox. Delete to reset it.",
-                                           None, 0, ctypes.byref(psid))
-    if hr == HRESULT_ALREADY_EXISTS:
-        hr = userenv.DeriveAppContainerSidFromAppContainerName(CONTAINER, ctypes.byref(psid))
-    if hr != 0:
+    # Asked once. Every status poll, every launch and every grant came
+    # through here, each creating the profile again to learn it existed —
+    # and now and then, with two of them at once, Windows answered
+    # E_UNEXPECTED and whatever was being opened failed with it.
+    with _container_lock:
+        if "sid" in _container:
+            return _container["sid"]
+        hr = 0
+        for attempt in range(3):
+            psid = PSID()
+            hr = userenv.CreateAppContainerProfile(CONTAINER, DISPLAY,
+                                                   "The clone's sandbox. Delete to reset it.",
+                                                   None, 0, ctypes.byref(psid))
+            if hr == HRESULT_ALREADY_EXISTS:
+                hr = userenv.DeriveAppContainerSidFromAppContainerName(CONTAINER, ctypes.byref(psid))
+            if hr == 0:
+                try:
+                    _container["sid"] = _sid_string(psid)
+                finally:
+                    advapi32.FreeSid(psid)
+                return _container["sid"]
+            time.sleep(0.2 * (attempt + 1))
         raise SandboxError(f"could not create the AppContainer (HRESULT {hr & 0xFFFFFFFF:#x})")
-    try:
-        return _sid_string(psid)
-    finally:
-        advapi32.FreeSid(psid)
 
 
 def container_sid():

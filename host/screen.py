@@ -155,14 +155,23 @@ def capture(quality=80, max_width=None):
     image = Image.frombuffer("RGBA", (w, h), raw, "raw", "BGRA", 0, 1).convert("RGB")
     dx, dy = _origin(desk)
     for pop in _popups(desk):
-        part = _grab(pop, client_only=False)
+        # A dialog is painted with its frame. A frameless popup — a menu, the
+        # start panel — only as far as its own picture goes: its window rect
+        # also covers the shadow Windows draws round it, which a window cannot
+        # paint, and which came out as a black edge down the right and bottom.
+        framed = user32.GetWindowLongW(pop, -16) & 0x00C00000 == 0x00C00000      # WS_CAPTION
+        part = _grab(pop, client_only=not framed)
         if not part:
             continue
         pw, ph, praw = part
-        r = wintypes.RECT()
-        user32.GetWindowRect(pop, ctypes.byref(r))
+        if framed:
+            r = wintypes.RECT()
+            user32.GetWindowRect(pop, ctypes.byref(r))
+            left, top = r.left, r.top
+        else:
+            left, top = _origin(pop)
         piece = Image.frombuffer("RGBA", (pw, ph), praw, "raw", "BGRA", 0, 1).convert("RGB")
-        image.paste(piece, (r.left - dx, r.top - dy))
+        image.paste(piece, (left - dx, top - dy))
     if max_width and image.width > max_width:
         image = image.resize((max_width, round(image.height * max_width / image.width)))
     out = io.BytesIO()
