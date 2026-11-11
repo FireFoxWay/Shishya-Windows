@@ -54,16 +54,24 @@ import common   # noqa: E402
 # some widgets, so on a PC in dark mode the rest (the chat itself, Findings,
 # the bill) came out black with dark text on it.
 
-ACCENT = "#0078d4"      # Settings' accent replaces it when an app starts
+ACCENT = "#F5B63A"      # marigold; Settings' accent replaces it when an app starts
 DOCK_SPACE = 88         # the strip the clone's dock floats in (desktop.RESERVED)
 SCREEN_W, SCREEN_H = 1440, 900
-INK, PAPER, SURFACE = "#1B1F38", "#FAF7F0", "#FFFFFF"
-RULE, MUTED, SOFT = "#E6E1D5", "#6E7183", "#F3EFE5"
-DESK, DESK_EDGE, DESK_TEXT = "#1E2340", "#2C3256", "#FBF7EC"
-# The home page's tints: (fill, the dark that is drawn on it).
-TINT = {"butter": ("#F3E3A6", "#633806"), "mint": ("#CFE8DA", "#085041"),
-        "peach": ("#F6CDB8", "#712B13"), "lav": ("#D6D2F4", "#3C3489"),
-        "paper": ("#E8E4D8", "#444441")}
+# DESIGN.md's tokens. Light sheets:
+INK, MUTED, FAINT = "#14162B", "#62678A", "#A4A8C3"
+BORDER, RULE, PAPER, SURFACE = "#D5D7E6", "#E8E9F2", "#F4F5FA", "#FFFFFF"
+SOFT = RULE
+# The dark ground:
+DESK, DESK_EDGE, DESK_TEXT, DESK_MUTED = "#1C1F3A", "#2A2E52", "#F3F2FA", "#A7A9C4"
+FRAME = "#C3C6DA"       # the one-pixel edge of a window
+GOOD, WARN, BAD = "#1E8E5F", "#B7791F", "#CC3D2E"
+UI_FONT = '"Segoe UI Variable Text", "Segoe UI", "Nirmala UI", sans-serif'
+DISPLAY_FONT = '"Segoe UI Variable Display", "Segoe UI", "Nirmala UI", sans-serif'
+MONO_FONT = '"Cascadia Mono", "Consolas", monospace'
+# The tints: (fill, the dark that is drawn on it). They name kinds of app.
+TINT = {"butter": ("#F6E3A1", "#5F3B06"), "mint": ("#CFEBDD", "#0A5140"),
+        "peach": ("#F8D0BB", "#73301A"), "lav": ("#DAD7F7", "#3A3391"),
+        "paper": ("#E1E5F2", "#363B5C")}
 
 # Line icons, 24x24, the same drawings as the home page's tiles.
 ICONS = {
@@ -158,119 +166,129 @@ def tick_image():
         return ""
 
 
+def on_colour(colour):
+    """Ink or white, whichever reads on this colour."""
+    c = QColor(colour)
+    light = (0.2126 * c.red() + 0.7152 * c.green() + 0.0722 * c.blue()) / 255
+    return INK if light > 0.55 else "#FFFFFF"
+
+
 def stylesheet(accent=ACCENT, tick=""):
-    wash = mix(accent, "#ffffff", 0.84)          # a selected row: the accent, mostly paper
+    wash = mix(accent, "#ffffff", 0.80)          # a selected row: the accent, mostly paper
+    on_accent = on_colour(accent)
     return f"""
-* {{ font-family: "Segoe UI Variable Text", "Segoe UI", "Inter", sans-serif; font-size: 13px;
-     color: {INK}; }}
-QWidget#appBody {{ background: {PAPER}; border-bottom-left-radius: 9px;
-                   border-bottom-right-radius: 9px; }}
+* {{ font-family: {UI_FONT}; font-size: 13px; color: {INK}; }}
+QWidget#appBody {{ background: {PAPER}; border-bottom-left-radius: 11px;
+                   border-bottom-right-radius: 11px; }}
 QDialog, QMessageBox, QFileDialog {{ background: {PAPER}; }}
 QLabel {{ background: transparent; }}
-QLabel[role="title"] {{ font-size: 17px; font-weight: 600; }}
+QLabel[role="title"] {{ font-family: {DISPLAY_FONT}; font-size: 20px; font-weight: 600; }}
 QLabel[role="muted"] {{ color: {MUTED}; }}
-QLabel[role="section"] {{ color: {MUTED}; font-size: 11px; letter-spacing: 1.2px;
-                          font-weight: 600; padding-top: 8px; }}
+QLabel[role="section"] {{ color: {MUTED}; font-size: 11px; letter-spacing: 0.6px;
+                          font-weight: 600; padding-top: 10px; }}
 QToolTip {{ background: {DESK}; color: {DESK_TEXT}; border: 1px solid {DESK_EDGE};
-            padding: 4px 8px; }}
+            padding: 5px 9px; }}
 
-QPushButton {{ background: {SURFACE}; border: 1px solid {RULE}; padding: 7px 14px;
-               border-radius: 8px; }}
-QPushButton:hover {{ background: {SOFT}; border-color: #D5CFC0; }}
-QPushButton:pressed {{ background: #E9E4D7; }}
-QPushButton:focus {{ border-color: {accent}; }}
-QPushButton:disabled {{ color: #A9A8A0; background: #F6F3EC; border-color: #ECE8DD; }}
-QPushButton[kind="primary"] {{ background: {DESK}; color: {DESK_TEXT}; border-color: {DESK};
-                               font-weight: 600; }}
-QPushButton[kind="primary"]:hover {{ background: {accent}; border-color: {accent}; color: white; }}
-QPushButton[kind="primary"]:pressed {{ background: {mix(accent, "#000000", 0.18)}; }}
-QPushButton[kind="primary"]:disabled {{ background: #B9BAC6; border-color: #B9BAC6;
-                                        color: #F3F1EA; }}
+QPushButton {{ background: {SURFACE}; border: 1px solid {BORDER}; padding: 7px 14px;
+               border-radius: 10px; font-weight: 500; }}
+QPushButton:hover {{ background: {RULE}; border-color: {FAINT}; }}
+QPushButton:pressed {{ background: {BORDER}; }}
+QPushButton:focus {{ border-color: {DESK_EDGE}; }}
+QPushButton:disabled {{ color: {FAINT}; background: {PAPER}; border-color: {RULE}; }}
+QPushButton[kind="primary"] {{ background: {accent}; color: {on_accent};
+                               border-color: {mix(accent, "#000000", 0.10)}; font-weight: 600; }}
+QPushButton[kind="primary"]:hover {{ background: {mix(accent, "#000000", 0.07)}; }}
+QPushButton[kind="primary"]:pressed {{ background: {mix(accent, "#000000", 0.16)}; }}
+QPushButton[kind="primary"]:disabled {{ background: {RULE}; border-color: {RULE};
+                                        color: {FAINT}; }}
 
 QLineEdit, QPlainTextEdit, QTextEdit, QComboBox, QSpinBox, QDoubleSpinBox {{
-    background: {SURFACE}; border: 1px solid {RULE}; padding: 6px 9px; border-radius: 8px;
-    selection-background-color: {accent}; selection-color: white; }}
-QPlainTextEdit, QTextEdit {{ border-radius: 10px; padding: 8px; }}
-QLineEdit:hover, QPlainTextEdit:hover, QTextEdit:hover, QComboBox:hover {{ border-color: #D5CFC0; }}
+    background: {SURFACE}; border: 1px solid {BORDER}; padding: 7px 10px; border-radius: 10px;
+    selection-background-color: {accent}; selection-color: {on_accent}; }}
+QPlainTextEdit, QTextEdit {{ border-radius: 12px; padding: 9px; }}
+QLineEdit:hover, QPlainTextEdit:hover, QTextEdit:hover, QComboBox:hover {{ border-color: {FAINT}; }}
 QLineEdit:focus, QPlainTextEdit:focus, QTextEdit:focus, QComboBox:focus, QSpinBox:focus {{
-    border-color: {accent}; }}
-QLineEdit:disabled, QPlainTextEdit:disabled, QTextEdit:disabled {{ background: #F6F3EC;
+    border-color: {DESK_EDGE}; }}
+QLineEdit:disabled, QPlainTextEdit:disabled, QTextEdit:disabled {{ background: {PAPER};
                                                                    color: {MUTED}; }}
-QComboBox QAbstractItemView {{ background: {SURFACE}; border: 1px solid {RULE};
+QComboBox QAbstractItemView {{ background: {SURFACE}; border: 1px solid {BORDER};
     selection-background-color: {wash}; selection-color: {INK}; outline: 0; }}
 
 QTableWidget, QTableView, QTreeWidget, QTreeView, QListWidget, QListView {{
-    background: {SURFACE}; alternate-background-color: #FCFAF6; border: 1px solid {RULE};
-    border-radius: 10px; gridline-color: #EFEBE1; selection-background-color: {wash};
+    background: {SURFACE}; alternate-background-color: #FAFAFD; border: 1px solid {RULE};
+    border-radius: 12px; gridline-color: #F0F1F7; selection-background-color: {wash};
     selection-color: {INK}; outline: 0; }}
-QTableWidget::item, QTableView::item {{ padding: 3px 6px; }}
-QListWidget::item, QListView::item {{ padding: 5px 10px; border-radius: 6px; }}
-QListWidget::item:hover, QListView::item:hover {{ background: {SOFT}; }}
+QTableWidget::item, QTableView::item {{ padding: 4px 8px; }}
+QListWidget::item, QListView::item {{ padding: 6px 10px; border-radius: 8px; }}
+QListWidget::item:hover, QListView::item:hover {{ background: {PAPER}; }}
 QListWidget::item:selected, QListView::item:selected {{ background: {wash}; color: {INK}; }}
 QHeaderView {{ background: transparent; border: 0; }}
-QHeaderView::section {{ background: {SOFT}; color: #4B4F66; border: 0;
-    border-bottom: 1px solid {RULE}; padding: 7px 8px; font-weight: 600; font-size: 12px; }}
-QHeaderView::section:horizontal:first {{ border-top-left-radius: 9px; }}
-QHeaderView::section:horizontal:last {{ border-top-right-radius: 9px; }}
-QHeaderView::section:horizontal:only-one {{ border-top-left-radius: 9px;
-                                            border-top-right-radius: 9px; }}
-QTableCornerButton::section {{ background: {SOFT}; border: 0; border-bottom: 1px solid {RULE};
-                               border-top-left-radius: 9px; }}
+QHeaderView::section {{ background: #FAFAFD; color: {MUTED}; border: 0;
+    border-bottom: 1px solid {RULE}; padding: 8px 10px; font-weight: 600; font-size: 11px; }}
+QHeaderView::section:horizontal:first {{ border-top-left-radius: 11px; }}
+QHeaderView::section:horizontal:last {{ border-top-right-radius: 11px; }}
+QHeaderView::section:horizontal:only-one {{ border-top-left-radius: 11px;
+                                            border-top-right-radius: 11px; }}
+QTableCornerButton::section {{ background: #FAFAFD; border: 0; border-bottom: 1px solid {RULE};
+                               border-top-left-radius: 11px; }}
 
-QTabWidget::pane {{ border: 1px solid {RULE}; border-radius: 10px; background: {SURFACE};
+QTabWidget::pane {{ border: 1px solid {RULE}; border-radius: 12px; background: {SURFACE};
                     top: 6px; }}
 QTabBar {{ background: transparent; }}
-QTabBar::tab {{ padding: 6px 16px; margin-right: 4px; border: 0; border-radius: 8px;
+QTabBar::tab {{ padding: 6px 16px; margin-right: 4px; border: 0; border-radius: 9px;
                 background: transparent; color: {MUTED}; font-weight: 600; }}
-QTabBar::tab:hover:!selected {{ background: {SOFT}; color: {INK}; }}
-QTabBar::tab:selected {{ background: {DESK}; color: {DESK_TEXT}; }}
+QTabBar::tab:hover:!selected {{ background: {RULE}; color: {INK}; }}
+QTabBar::tab:selected {{ background: {INK}; color: #FFFFFF; }}
 
-QProgressBar {{ border: 0; background: #ECE7DB; border-radius: 7px; min-height: 14px;
-                max-height: 14px; text-align: center; font-size: 10px; color: {INK}; }}
-QProgressBar::chunk {{ background: {accent}; border-radius: 7px; }}
+QProgressBar {{ border: 0; background: {RULE}; border-radius: 4px; min-height: 8px;
+                max-height: 8px; color: transparent; }}
+QProgressBar::chunk {{ background: {accent}; border-radius: 4px; }}
 
 QScrollArea {{ background: transparent; border: 0; }}
 QScrollArea > QWidget > QWidget {{ background: transparent; }}
 QSplitter::handle {{ background: transparent; }}
-QSplitter::handle:horizontal {{ width: 10px; }}
-QSplitter::handle:vertical {{ height: 10px; }}
+QSplitter::handle:horizontal {{ width: 12px; }}
+QSplitter::handle:vertical {{ height: 12px; }}
 QScrollBar:vertical {{ background: transparent; width: 12px; margin: 2px; }}
 QScrollBar:horizontal {{ background: transparent; height: 12px; margin: 2px; }}
-QScrollBar::handle {{ background: #D8D2C3; border-radius: 4px; }}
+QScrollBar::handle {{ background: {BORDER}; border-radius: 4px; }}
 QScrollBar::handle:vertical {{ min-height: 28px; }}
 QScrollBar::handle:horizontal {{ min-width: 28px; }}
-QScrollBar::handle:hover {{ background: #BDB6A6; }}
+QScrollBar::handle:hover {{ background: {FAINT}; }}
 QScrollBar::add-line, QScrollBar::sub-line {{ width: 0; height: 0; }}
 QScrollBar::add-page, QScrollBar::sub-page {{ background: transparent; }}
 
 QCheckBox, QRadioButton {{ spacing: 8px; background: transparent; }}
 QCheckBox::indicator, QRadioButton::indicator {{ width: 16px; height: 16px;
-    background: {SURFACE}; border: 1px solid #B9B3A4; }}
-QCheckBox::indicator {{ border-radius: 4px; }}
+    background: {SURFACE}; border: 1px solid {FAINT}; }}
+QCheckBox::indicator {{ border-radius: 5px; }}
 QRadioButton {{ margin-right: 14px; }}
 QRadioButton::indicator {{ border-radius: 9px; }}
-QCheckBox::indicator:hover, QRadioButton::indicator:hover {{ border-color: {accent}; }}
-QCheckBox::indicator:checked {{ background: {accent}; border-color: {accent};
-                               image: url({tick}); }}
-QRadioButton::indicator:checked {{ width: 8px; height: 8px; border: 5px solid {accent}; }}
-QCheckBox::indicator:disabled, QRadioButton::indicator:disabled {{ background: #F1EEE6;
-                                                                   border-color: #DDD8CB; }}
-QMenu {{ background: {SURFACE}; border: 1px solid {RULE}; padding: 4px; }}
-QMenu::item {{ padding: 6px 18px; border-radius: 6px; }}
-QMenu::item:selected {{ background: {SOFT}; color: {INK}; }}
-QFrame#card {{ background: {SURFACE}; border: 1px solid {RULE}; border-radius: 12px; }}
-QFrame#bubbleYou {{ background: {TINT["butter"][0]}; border-radius: 14px; }}
-QFrame#bubbleYou QLabel {{ color: #3B2606; }}
-QFrame#bubbleShishya {{ background: {SURFACE}; border: 1px solid {RULE}; border-radius: 14px; }}
-QFrame#bubbleShishya[doing="true"] {{ background: transparent; border: 1px dashed #D5CFC0; }}
-QPlainTextEdit#codeBlock {{ background: #F7F4EC; border: 1px solid {RULE}; border-radius: 8px;
-    padding: 6px 8px; font-family: "Cascadia Mono", "Consolas", monospace; font-size: 12px; }}
-QPushButton#chip {{ background: {SURFACE}; border: 1px solid {RULE}; border-radius: 15px;
-                    padding: 6px 14px; color: #4B4F66; }}
-QPushButton#chip:hover {{ background: {TINT["butter"][0]}; border-color: #E2CD86;
-                          color: {TINT["butter"][1]}; }}
-QFrame#titleBar {{ background: {DESK}; }}
-QFrame#titleBar QLabel {{ color: {DESK_TEXT}; font-size: 12px; font-weight: 600; }}
+QCheckBox::indicator:hover, QRadioButton::indicator:hover {{ border-color: {INK}; }}
+QCheckBox::indicator:checked {{ background: {INK}; border-color: {INK}; image: url({tick}); }}
+QRadioButton::indicator:checked {{ width: 8px; height: 8px; border: 5px solid {INK}; }}
+QCheckBox::indicator:disabled, QRadioButton::indicator:disabled {{ background: {PAPER};
+                                                                   border-color: {RULE}; }}
+QSlider::groove:horizontal {{ height: 4px; background: {RULE}; border-radius: 2px; }}
+QSlider::sub-page:horizontal {{ background: {accent}; border-radius: 2px; }}
+QSlider::handle:horizontal {{ width: 16px; height: 16px; margin: -7px 0; border-radius: 9px;
+                              background: {SURFACE}; border: 1px solid {FAINT}; }}
+QSlider::handle:horizontal:hover {{ border-color: {INK}; }}
+QMenu {{ background: {SURFACE}; border: 1px solid {BORDER}; padding: 5px; }}
+QMenu::item {{ padding: 7px 18px; border-radius: 7px; }}
+QMenu::item:selected {{ background: {PAPER}; color: {INK}; }}
+QFrame#card {{ background: {SURFACE}; border: 1px solid {RULE}; border-radius: 14px; }}
+QFrame#bubbleYou {{ background: {wash}; border-radius: 16px; }}
+QFrame#bubbleShishya {{ background: {SURFACE}; border: 1px solid {RULE}; border-radius: 16px; }}
+QFrame#bubbleShishya[doing="true"] {{ background: transparent; border: 1px dashed {FAINT}; }}
+QPlainTextEdit#codeBlock {{ background: {PAPER}; border: 1px solid {RULE}; border-radius: 10px;
+    padding: 6px 8px; font-family: {MONO_FONT}; font-size: 12px; }}
+QPushButton#chip {{ background: {SURFACE}; border: 1px solid {BORDER}; border-radius: 15px;
+                    padding: 6px 14px; color: {MUTED}; font-weight: 400; }}
+QPushButton#chip:hover {{ background: {wash}; border-color: {accent}; color: {INK}; }}
+QFrame#titleBar {{ background: {SURFACE}; border-bottom: 1px solid {RULE};
+                   border-top-left-radius: 11px; border-top-right-radius: 11px; }}
+QFrame#titleBar QLabel {{ color: {INK}; font-size: 12px; font-weight: 600; }}
 """
 
 
@@ -280,18 +298,18 @@ def palette(accent=ACCENT):
     pal = QPalette()
     for role, colour in (
             (QPalette.Window, PAPER), (QPalette.WindowText, INK), (QPalette.Base, SURFACE),
-            (QPalette.AlternateBase, "#FCFAF6"), (QPalette.Text, INK), (QPalette.Button, SURFACE),
+            (QPalette.AlternateBase, "#FAFAFD"), (QPalette.Text, INK), (QPalette.Button, SURFACE),
             (QPalette.ButtonText, INK), (QPalette.BrightText, "#ffffff"),
             (QPalette.ToolTipBase, DESK), (QPalette.ToolTipText, DESK_TEXT),
-            (QPalette.PlaceholderText, "#9A9CA8"), (QPalette.Highlight, accent),
-            (QPalette.HighlightedText, "#ffffff"), (QPalette.Link, accent),
-            (QPalette.Light, "#ffffff"), (QPalette.Midlight, SOFT), (QPalette.Mid, RULE),
-            (QPalette.Dark, "#B9B3A4"), (QPalette.Shadow, "#8E897C")):
+            (QPalette.PlaceholderText, FAINT), (QPalette.Highlight, accent),
+            (QPalette.HighlightedText, on_colour(accent)), (QPalette.Link, "#A86A12"),
+            (QPalette.Light, "#ffffff"), (QPalette.Midlight, RULE), (QPalette.Mid, BORDER),
+            (QPalette.Dark, FAINT), (QPalette.Shadow, MUTED)):
         pal.setColor(role, QColor(colour))
     if hasattr(QPalette, "Accent"):          # what a ticked box and a chosen radio are filled with
         pal.setColor(QPalette.Accent, QColor(accent))
     for role in (QPalette.WindowText, QPalette.Text, QPalette.ButtonText):
-        pal.setColor(QPalette.Disabled, role, QColor("#A9A8A0"))
+        pal.setColor(QPalette.Disabled, role, QColor(FAINT))
     return pal
 
 
@@ -613,11 +631,11 @@ class _TitleIcon(QWidget):
     def __init__(self, title):
         super().__init__()
         self.pair = icon_for(title)
-        self.setFixedSize(20, 20)
+        self.setFixedSize(22, 22)
 
     def paintEvent(self, _e):
         p = QPainter(self)
-        paint_icon(p, QRectF(0, 0, 20, 20), *self.pair, radius=6)
+        paint_icon(p, QRectF(0, 0, 22, 22), *self.pair, radius=7)
         p.end()
 
 
@@ -634,7 +652,7 @@ class ChromeButton(QPushButton):
         self.setAccessibleName(tip)
         self.setToolTip(tip)
         self.setObjectName(ident)
-        self.setFixedSize(44, TitleBar.HEIGHT)
+        self.setFixedSize(42, TitleBar.HEIGHT)
         self.setFocusPolicy(Qt.NoFocus)
         self.setAttribute(Qt.WA_Hover, True)
         self.clicked.connect(lambda *_: handler())
@@ -642,10 +660,12 @@ class ChromeButton(QPushButton):
     def paintEvent(self, _e):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
-        if self.underMouse():
-            p.fillRect(self.rect(), QColor("#C8402F") if self.kind == "close"
-                       else QColor(255, 255, 255, 30))
-        pen = QPen(QColor(DESK_TEXT), 1.3)
+        hot = self.underMouse()
+        if hot:
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor(BAD) if self.kind == "close" else QColor(RULE))
+            p.drawRoundedRect(QRectF(self.rect()).adjusted(4, 6, -4, -6), 8, 8)
+        pen = QPen(QColor("#FFFFFF" if hot and self.kind == "close" else MUTED), 1.3)
         pen.setCapStyle(Qt.RoundCap)
         pen.setJoinStyle(Qt.RoundJoin)
         p.setPen(pen)
@@ -672,7 +692,7 @@ class TitleBar(QFrame):
     screen, to a side edge for half of it — and minimise, maximise, close."""
 
     CHROME = True          # the recorder ignores it: our furniture, not the task
-    HEIGHT = 36
+    HEIGHT = 40
 
     def __init__(self, window, title):
         super().__init__(window)
@@ -680,7 +700,7 @@ class TitleBar(QFrame):
         self.window_ = window
         self.setFixedHeight(self.HEIGHT)
         row = QHBoxLayout(self)
-        row.setContentsMargins(10, 0, 0, 0)
+        row.setContentsMargins(12, 0, 6, 0)
         row.setSpacing(0)
         row.addWidget(_TitleIcon(title))
         row.addSpacing(9)
@@ -773,7 +793,7 @@ class SizeGrip(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         p.setPen(Qt.NoPen)
-        p.setBrush(QColor("#C6C0B1"))
+        p.setBrush(QColor(FAINT))
         for x, y in ((12, 12), (7, 12), (12, 7)):
             p.drawEllipse(QPointF(x, y), 1.3, 1.3)
         p.end()
@@ -788,7 +808,7 @@ class Window(QWidget):
     Linux — it is an ordinary window with an ordinary frame.
     """
 
-    RADIUS, MIN_W, MIN_H = 10, 420, 280
+    RADIUS, MIN_W, MIN_H = 12, 420, 280
 
     def __init__(self, title, width=860, height=600):
         super().__init__()
@@ -905,7 +925,7 @@ class Window(QWidget):
     def paintEvent(self, _e):
         if self.desk:
             p = QPainter(self)
-            p.fillRect(self.rect(), QColor(DESK_EDGE))
+            p.fillRect(self.rect(), QColor(FRAME))
             p.end()
 
     def mousePressEvent(self, e):

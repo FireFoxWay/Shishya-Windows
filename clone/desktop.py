@@ -50,13 +50,19 @@ DOCK_H, DOCK_GAP = 60, 14
 RESERVED = DOCK_H + 2 * DOCK_GAP       # the strip along the bottom apps keep clear of
 APPS = Path(__file__).resolve().parent / "apps"
 CONFIG = common.SHARED / ".desktop.json"
-LOOK = {"wallpaper": "ink", "accent": "#0078d4", "wallmark": "शि", "fps": 12}
-LOOK_VERSION = 2                       # 2: the apprentice's desk
+LOOK = {"wallpaper": "ink", "accent": kit.ACCENT, "wallmark": "शि", "fps": 12}
+LOOK_VERSION = 3                       # 3: Ink & Marigold (DESIGN.md)
 
 # ─── palette ────────────────────────────────────────────────────────────────
 # Ink for the desk, and the home page's own tints for the things on it.
-INK, INK_LOW, CARD, EDGE = "#171B30", "#10132A", "#1E2340", "#2C3256"
-TEXT, MUTED, MARK = "#FBF7EC", "#A9A79C", "#1D2240"
+INK, INK_LOW, CARD, EDGE = "#14162B", "#0B0C1D", "#1C1F3A", "#2A2E52"
+TEXT, MUTED = kit.DESK_TEXT, kit.DESK_MUTED
+MARIGOLD = kit.ACCENT
+# The wallpaper's glows: (x, y, radius — all as shares of the width or
+# height — colour, strength). Indigo high right, teal low left, a little
+# marigold behind the mark, violet off the top.
+GLOWS = ((0.80, 0.14, 0.62, (75, 80, 224), 0.36), (0.08, 0.98, 0.56, (18, 165, 148), 0.24),
+         (0.90, 1.02, 0.42, (245, 182, 58), 0.17), (0.36, -0.12, 0.46, (138, 79, 216), 0.18))
 # The tints and the line icons are kit's: the apps' title bars use them too.
 TINT, ICONS, paint_icon, _path = kit.TINT, kit.ICONS, kit.paint_icon, kit.icon_path
 
@@ -137,7 +143,9 @@ def read_look():
     except (OSError, ValueError):
         look = dict(LOOK)
     if look.get("look_version", 0) < LOOK_VERSION:
-        look.update(wallpaper="ink", wallmark="शि", look_version=LOOK_VERSION)
+        if look.get("look_version", 0) < 2:
+            look.update(wallpaper="ink", wallmark="शि")
+        look.update(accent=kit.ACCENT, look_version=LOOK_VERSION)      # marigold is the default now
         try:
             CONFIG.write_text(json.dumps(look, indent=2, ensure_ascii=False), encoding="utf-8")
         except OSError:
@@ -161,63 +169,78 @@ def open_entry(target):
 # ─── drawing ────────────────────────────────────────────────────────────────
 
 _desk = {}
+BASE = [None]          # a plain colour chosen in Settings, or None for ink
 
 
-def desk_picture(scale=2):
-    """The still desk, drawn once: ink, a low glow — and a grain of noise.
+def desk_picture(scale=2, base=None):
+    """The still desk, drawn once: ink, four slow glows — and a grain of noise.
 
-    The gradient runs through about eight shades of ink over nine hundred
-    points, and eight shades drawn smoothly are eight visible bands, ringed
-    round the glow like a target. A point or two of noise per pixel breaks
+    A dark gradient has only a handful of shades to run through, and drawn
+    smoothly they show as bands. A point or two of noise per pixel breaks
     the bands up; it is how every dark gradient that looks smooth is made.
+    Worked out at one pixel per point and enlarged: a glow loses nothing by it.
     """
-    if scale in _desk:
-        return _desk[scale]
+    key = (scale, base)
+    if key in _desk:
+        return _desk[key]
     from PySide6.QtGui import QImage, QPixmap
-    w, h = W * scale, H * scale
+    top = QColor(base or INK)
+    low = QColor(base).darker(190) if base else QColor(INK_LOW)
     try:
         import numpy as np
-        y, x = np.mgrid[0:h, 0:w].astype(np.float32)
-        t = (y / (h - 1))[..., None]
-        top = np.array([int(INK[i:i + 2], 16) for i in (1, 3, 5)], np.float32)
-        low = np.array([int(INK_LOW[i:i + 2], 16) for i in (1, 3, 5)], np.float32)
-        img = top + (low - top) * t
-        d = np.sqrt((x - w * 0.62) ** 2 + (y - h * 0.42) ** 2) / (w * 0.5)
-        a = (np.clip(1 - d, 0, 1) * (120 / 255))[..., None]
-        img = img * (1 - a) + np.array([46, 52, 98], np.float32) * a
-        img += np.random.default_rng(7).uniform(-1.6, 1.6, (h, w, 1)).astype(np.float32)
+        y, x = np.mgrid[0:H, 0:W].astype(np.float32)
+        t = (y / (H - 1))[..., None]
+        a0 = np.array([top.red(), top.green(), top.blue()], np.float32)
+        a1 = np.array([low.red(), low.green(), low.blue()], np.float32)
+        img = a0 + (a1 - a0) * t
+        for gx, gy, gr, colour, strength in GLOWS:
+            d = np.sqrt((x - W * gx) ** 2 + (y - H * gy) ** 2) / (W * gr)
+            a = (np.clip(1 - d, 0, 1) ** 2 * strength)[..., None]
+            img = img * (1 - a) + np.array(colour, np.float32) * a
+        img += np.random.default_rng(7).uniform(-1.8, 1.8, (H, W, 1)).astype(np.float32)
         rgb = np.clip(np.rint(img), 0, 255).astype(np.uint8)
-        rgba = np.dstack([rgb, np.full((h, w, 1), 255, np.uint8)])
-        picture = QImage(rgba.tobytes(), w, h, w * 4, QImage.Format_RGBA8888).copy()
+        rgba = np.dstack([rgb, np.full((H, W, 1), 255, np.uint8)])
+        picture = QImage(rgba.tobytes(), W, H, W * 4, QImage.Format_RGBA8888).copy()
     except Exception:                                   # noqa: BLE001 — banded beats blank
-        picture = QImage(w, h, QImage.Format_RGB32)
+        picture = QImage(W, H, QImage.Format_RGB32)
         q = QPainter(picture)
-        g = QLinearGradient(0, 0, 0, h)
-        g.setColorAt(0, QColor(INK))
-        g.setColorAt(1, QColor(INK_LOW))
-        q.fillRect(0, 0, w, h, g)
-        glow = QRadialGradient(w * 0.62, h * 0.42, w * 0.5)
-        glow.setColorAt(0, QColor(46, 52, 98, 120))
-        glow.setColorAt(1, QColor(46, 52, 98, 0))
-        q.fillRect(0, 0, w, h, glow)
+        g = QLinearGradient(0, 0, 0, H)
+        g.setColorAt(0, top)
+        g.setColorAt(1, low)
+        q.fillRect(0, 0, W, H, g)
+        for gx, gy, gr, colour, strength in GLOWS:
+            glow = QRadialGradient(W * gx, H * gy, W * gr)
+            glow.setColorAt(0, QColor(*colour, int(255 * strength)))
+            glow.setColorAt(1, QColor(*colour, 0))
+            q.fillRect(0, 0, W, H, glow)
         q.end()
+    if scale != 1:
+        picture = picture.scaled(W * scale, H * scale, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
     pm = QPixmap.fromImage(picture)
     pm.setDevicePixelRatio(scale)
-    _desk[scale] = pm
+    _desk[key] = pm
     return pm
 
 
 def paint_desk(p, offset=QPoint(0, 0), live=None):
-    """The desk itself — ink, a low glow, the mark. Drawn by the screen, and
-    by the dock and the start panel behind their own rounded corners, so the
-    corners show the desk and not a square of something else."""
+    """The desk itself. Drawn by the screen, and by the dock and the start
+    panel behind their own rounded corners, so the corners show the desk and
+    not a square of something else."""
     p.save()
     p.translate(-offset)
     if live is not None:
         live.draw(p, W, H)
     else:
-        p.drawPixmap(0, 0, desk_picture(2 if p.device().devicePixelRatioF() > 1 else 1))
+        p.drawPixmap(0, 0, desk_picture(2 if p.device().devicePixelRatioF() > 1 else 1, BASE[0]))
     p.restore()
+
+
+def glass(p, rect, radius=20, strong=False):
+    """A sheet of dark glass on the desk: the dock and the panel (strong), or
+    a card (a breath of white)."""
+    p.setPen(QPen(QColor(255, 255, 255, 30), 1))
+    p.setBrush(QColor(22, 24, 48, 208) if strong else QColor(255, 255, 255, 17))
+    p.drawRoundedRect(QRectF(rect).adjusted(0.5, 0.5, -0.5, -0.5), radius, radius)
 
 
 class Facts:
@@ -245,10 +268,13 @@ class Facts:
             pass
 
 
-def font(px, weight=QFont.Normal, family="Segoe UI"):
+def font(px, weight=QFont.Normal, family=None):
     """Fonts by pixel, never by point: points follow the display's DPI, and
     the clone's screen is the same 1440x900 on every laptop."""
-    f = QFont(family)
+    f = QFont()
+    f.setFamilies([family] if family else
+                  ["Segoe UI Variable Display" if px >= 18 else "Segoe UI Variable Text",
+                   "Segoe UI", "Nirmala UI"])
     f.setPixelSize(px)
     f.setWeight(weight)
     return f
@@ -276,15 +302,16 @@ class Tile(QPushButton):
     def paintEvent(self, _e):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
-        if self.underMouse() or self.hasFocus():
+        hot = self.underMouse() or self.hasFocus()
+        if hot:
             p.setPen(Qt.NoPen)
-            p.setBrush(QColor(255, 255, 255, 18))
-            p.drawRoundedRect(QRectF(self.rect()).adjusted(1, 1, -1, -1), 12, 12)
+            p.setBrush(QColor(255, 255, 255, 22))
+            p.drawRoundedRect(QRectF(self.rect()).adjusted(1, 1, -1, -1), 14, 14)
         x = (self.width() - self.size) / 2
-        paint_icon(p, QRectF(x, 6, self.size, self.size), self.icon, self.tint)
+        paint_icon(p, QRectF(x, 7, self.size, self.size), self.icon, self.tint)
         p.setPen(QColor(TEXT))
-        p.setFont(font(12))
-        p.drawText(QRectF(0, self.size + 10, self.width(), 18), Qt.AlignHCenter | Qt.AlignTop,
+        p.setFont(font(12, QFont.Medium))
+        p.drawText(QRectF(0, self.size + 12, self.width(), 18), Qt.AlignHCenter | Qt.AlignTop,
                    self.name)
         p.end()
 
@@ -302,10 +329,10 @@ class Row(QPushButton):
     def paintEvent(self, _e):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
-        bg = QColor(255, 255, 255, 22 if (self.underMouse() or self.hasFocus()) else 8)
-        p.setPen(Qt.NoPen)
-        p.setBrush(bg)
-        p.drawRoundedRect(QRectF(self.rect()).adjusted(0, 0, -1, -1), 10, 10)
+        hot = self.underMouse() or self.hasFocus()
+        p.setPen(QPen(QColor(255, 255, 255, 26 if hot else 0), 1))
+        p.setBrush(QColor(255, 255, 255, 26 if hot else 11))
+        p.drawRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 12, 12)
         paint_icon(p, QRectF(8, 8, 24, 24), self.icon, self.tint, radius=7)
         p.setPen(QColor(TEXT))
         p.setFont(font(13))
@@ -362,15 +389,18 @@ class StartPanel(QFrame):
         self.setObjectName("startPanel")
         self.setFixedSize(self.PW, self.PH)
         self.setStyleSheet(f"""
-            QLineEdit {{ background: {INK_LOW}; color: {TEXT}; border: 1px solid {EDGE};
-                         border-radius: 12px; padding: 0 14px 0 6px; min-height: 40px;
-                         font-size: 13px; selection-background-color: #3C3489; }}
-            QLineEdit:hover {{ border-color: {EDGE}; }}
-            QLineEdit:focus {{ border-color: #6E74B8; }}
-            QLabel {{ color: {MUTED}; font-size: 11px; background: transparent; }}
+            QLineEdit {{ background: rgba(255,255,255,0.07); color: {TEXT};
+                         border: 1px solid rgba(255,255,255,0.14); border-radius: 14px;
+                         padding: 0 14px 0 6px; min-height: 44px; font-size: 14px;
+                         selection-background-color: {MARIGOLD}; selection-color: {INK}; }}
+            QLineEdit:hover {{ border-color: rgba(255,255,255,0.24); }}
+            QLineEdit:focus {{ border-color: {MARIGOLD}; background: rgba(255,255,255,0.10); }}
+            QLabel {{ color: {MUTED}; font-size: 11px; font-weight: 600; letter-spacing: 0.6px;
+                      background: transparent; }}
             QPushButton#link {{ background: transparent; color: {TEXT}; border: 0;
-                                font-size: 12px; padding: 6px 10px; border-radius: 8px; }}
-            QPushButton#link:hover, QPushButton#link:focus {{ background: rgba(255,255,255,0.08); }}
+                                font-size: 12px; font-weight: 500; padding: 7px 12px;
+                                border-radius: 9px; }}
+            QPushButton#link:hover, QPushButton#link:focus {{ background: rgba(255,255,255,0.10); }}
             QWidget#page {{ background: transparent; }}
         """)
         outer = QVBoxLayout(self)
@@ -515,9 +545,7 @@ class StartPanel(QFrame):
         # a square of something else (a popup cannot be see-through here).
         origin = self.desktop.mapFromGlobal(self.mapToGlobal(QPoint(0, 0)))
         paint_desk(p, origin, self.desktop.live)
-        p.setPen(QPen(QColor(EDGE), 1))
-        p.setBrush(QColor(CARD))
-        p.drawRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 20, 20)
+        glass(p, self.rect(), 24, strong=True)
         p.end()
 
 
@@ -597,19 +625,21 @@ class Orb(QPushButton):
     def paintEvent(self, _e):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
-        c = QRectF(self.rect()).adjusted(7, 7, -7, -7)
+        c = QRectF(self.rect()).adjusted(5, 5, -5, -5)
         if self.underMouse() or self.hasFocus():
             p.setPen(Qt.NoPen)
-            p.setBrush(QColor(255, 255, 255, 20))
-            p.drawEllipse(QRectF(self.rect()).adjusted(1, 1, -1, -1))
+            p.setBrush(QColor(255, 255, 255, 26))
+            p.drawEllipse(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5))
         p.setPen(Qt.NoPen)
-        p.setBrush(QColor(TINT["butter"][0]))
-        p.drawEllipse(c.adjusted(4, 4, -4, -4))
+        p.setBrush(QColor(MARIGOLD))
+        p.drawEllipse(c.adjusted(3, 3, -3, -3))
+        p.setPen(QColor(INK))
+        p.setFont(font(15, QFont.Bold, "Nirmala UI"))
+        p.drawText(c.adjusted(0, -1, 0, -1), Qt.AlignCenter, "शि")
         ring = QRectF(c)
+        p.setBrush(Qt.NoBrush)
         if self.state == "working":
-            p.setPen(QPen(QColor(EDGE), 3))
-            p.drawEllipse(ring)
-            pen = QPen(QColor(TINT["mint"][0]), 3)
+            pen = QPen(QColor(TEXT), 2.5)
             pen.setCapStyle(Qt.RoundCap)
             p.setPen(pen)
             p.drawArc(ring, int(-self.phase * 360 * 16), 110 * 16)
@@ -617,14 +647,10 @@ class Orb(QPushButton):
             alpha = int(150 + 105 * (0.5 + 0.5 * math.sin(self.phase * 2 * math.pi)))
             col = QColor(TINT["peach"][0])
             col.setAlpha(alpha)
-            p.setPen(QPen(col, 3))
+            p.setPen(QPen(col, 2.5))
             p.drawEllipse(ring)
         elif self.state == "wheel":
-            pen = QPen(QColor(TEXT), 2, Qt.DashLine)
-            p.setPen(pen)
-            p.drawEllipse(ring)
-        else:
-            p.setPen(QPen(QColor(TINT["mint"][0]), 3))
+            p.setPen(QPen(QColor(TEXT), 2, Qt.DashLine))
             p.drawEllipse(ring)
         p.end()
 
@@ -664,16 +690,17 @@ class PinButton(QPushButton):
         p.setRenderHint(QPainter.Antialiasing)
         if self.underMouse() or self.hasFocus():
             p.setPen(Qt.NoPen)
-            p.setBrush(QColor(255, 255, 255, 20))
-            p.drawRoundedRect(QRectF(self.rect()).adjusted(1, 1, -1, -1), 12, 12)
+            p.setBrush(QColor(255, 255, 255, 24))
+            p.drawRoundedRect(QRectF(self.rect()).adjusted(1, 1, -1, -1), 13, 13)
         if self.hidden:
-            p.setOpacity(0.55)
-        paint_icon(p, QRectF(8, 6, 28, 28), self.icon_, self.tint, radius=8)
+            p.setOpacity(0.5)
+        paint_icon(p, QRectF(6, 4, 32, 32), self.icon_, self.tint, radius=10)
         p.setOpacity(1.0)
-        if self.hwnd:                    # open: a mark under it, bright when it is in front
+        if self.hwnd:                    # open: a mark under it, marigold when it is in front
+            front = self.top and not self.hidden
             p.setPen(Qt.NoPen)
-            p.setBrush(QColor(TINT["mint"][0]) if self.top and not self.hidden else QColor(MUTED))
-            wide = 12 if self.top and not self.hidden else 4
+            p.setBrush(QColor(MARIGOLD) if front else QColor(255, 255, 255, 110))
+            wide = 14 if front else 4
             p.drawRoundedRect(QRectF(22 - wide / 2, self.height() - 5, wide, 3), 1.5, 1.5)
         p.end()
 
@@ -695,7 +722,7 @@ class TaskButton(QPushButton):
         f = font(13)
         self.label = title if len(title) <= 16 else title[:15] + "…"
         from PySide6.QtGui import QFontMetrics
-        self.setFixedWidth(44 + QFontMetrics(f).horizontalAdvance(self.label) + 14)
+        self.setFixedWidth(46 + QFontMetrics(f).horizontalAdvance(self.label) + 16)
         self.clicked.connect(self.on_click)
 
     def on_click(self):
@@ -709,20 +736,20 @@ class TaskButton(QPushButton):
         p.setRenderHint(QPainter.Antialiasing)
         if self.underMouse() or self.hasFocus():
             p.setPen(Qt.NoPen)
-            p.setBrush(QColor(255, 255, 255, 20))
-            p.drawRoundedRect(QRectF(self.rect()).adjusted(1, 1, -1, -1), 12, 12)
+            p.setBrush(QColor(255, 255, 255, 24))
+            p.drawRoundedRect(QRectF(self.rect()).adjusted(1, 1, -1, -1), 13, 13)
         if self.hidden:
-            p.setOpacity(0.55)          # put away: still open, out of sight
-        paint_icon(p, QRectF(8, 8, 28, 28), self.icon_, self.tint, radius=8)
+            p.setOpacity(0.5)          # put away: still open, out of sight
+        paint_icon(p, QRectF(6, 4, 32, 32), self.icon_, self.tint, radius=10)
         p.setPen(QColor(TEXT))
-        p.setFont(font(13))
-        p.drawText(QRectF(44, 0, self.width() - 48, self.height()),
+        p.setFont(font(13, QFont.Medium))
+        p.drawText(QRectF(46, 0, self.width() - 50, self.height() - 4),
                    Qt.AlignLeft | Qt.AlignVCenter, self.label)
         p.setOpacity(1.0)
         if self.top and not self.hidden:
             p.setPen(Qt.NoPen)
-            p.setBrush(QColor(TINT["mint"][0]))
-            p.drawRoundedRect(QRectF(22 - 6, self.height() - 4, 12, 3), 1.5, 1.5)
+            p.setBrush(QColor(MARIGOLD))
+            p.drawRoundedRect(QRectF(22 - 7, self.height() - 5, 14, 3), 1.5, 1.5)
         p.end()
 
 
@@ -748,7 +775,7 @@ class Dock(QWidget):
         row.addWidget(self.orb)
         self.sep1 = QFrame()
         self.sep1.setFixedSize(1, 26)
-        self.sep1.setStyleSheet(f"background: {EDGE};")
+        self.sep1.setStyleSheet("background: rgba(255,255,255,0.14);")
         row.addWidget(self.sep1)
         # The six a counter reaches for, always one click away — the start
         # panel is for everything else.
@@ -760,11 +787,13 @@ class Dock(QWidget):
         row.addLayout(self.tasks)
         self.sep2 = QFrame()
         self.sep2.setFixedSize(1, 26)
-        self.sep2.setStyleSheet(f"background: {EDGE};")
+        self.sep2.setStyleSheet("background: rgba(255,255,255,0.14);")
         row.addWidget(self.sep2)
         self.clock = QLabel()
-        self.clock.setStyleSheet(f"color: {TEXT}; font-size: 12px; padding-left: 8px;"
+        self.clock.setStyleSheet(f"color: {TEXT}; font-size: 13px; padding-left: 10px;"
                                  " background: transparent;")
+        self.clock.setTextFormat(Qt.RichText)
+        self.clock.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         self.clock.setAccessibleName("Time")
         row.addWidget(self.clock)
         self.panel = StartPanel(desktop)
@@ -786,7 +815,8 @@ class Dock(QWidget):
 
     def tick(self):
         now = QDateTime.currentDateTime()
-        self.clock.setText(now.toString("HH:mm") + "   " + now.toString("ddd d MMM"))
+        self.clock.setText(f"<b>{now.toString('HH:mm')}</b><br>"
+                           f"<span style='color:{MUTED}; font-size:11px'>{now.toString('ddd d MMM')}</span>")
         try:
             state = common.STATE.read_text(encoding="utf-8").strip() or "idle"
         except OSError:
@@ -848,15 +878,13 @@ class Dock(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         paint_desk(p, self.pos(), self.desktop.live)
-        p.setPen(QPen(QColor(EDGE), 1))
-        p.setBrush(QColor(CARD))
-        p.drawRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 18, 18)
+        glass(p, self.rect(), 22, strong=True)
         p.end()
 
 
 # ─── the screen ─────────────────────────────────────────────────────────────
 
-CARD_X, CARD_W = 28, 248
+CARD_X, CARD_W = 28, 264
 
 
 class Desktop(QWidget):
@@ -925,6 +953,7 @@ class Desktop(QWidget):
                 self.live, self.live_name = cls(), chosen
         else:
             self.live, self.live_name = None, None
+        BASE[0] = chosen if str(chosen).startswith("#") and QColor(chosen).isValid() else None
         self.fps = int(look.get("fps", 0) or 0)
         self._retime()
         self.update()
@@ -961,59 +990,90 @@ class Desktop(QWidget):
                 open_entry(target)
                 return
 
-    def _card(self, p, y, h, fill=CARD, edge=True):
+    def _card(self, p, y, h, fill=None):
+        """A card: tinted when it carries a fill, dark glass when it does not."""
         r = QRectF(CARD_X, y, CARD_W, h)
-        p.setPen(QPen(QColor(EDGE), 1) if edge else Qt.NoPen)
-        p.setBrush(QColor(fill))
-        p.drawRoundedRect(r, 16, 16)
+        if fill:
+            p.setPen(Qt.NoPen)
+            p.setBrush(QColor(fill))
+            p.drawRoundedRect(r, 20, 20)
+        else:
+            glass(p, r, 20)
         return r
 
     def _text(self, p, rect, text, size, colour, weight=QFont.Normal, flags=Qt.AlignLeft | Qt.AlignTop):
-        p.setFont(font(size, weight))
+        f = font(size, weight)
+        if size <= 11:
+            f.setLetterSpacing(QFont.AbsoluteSpacing, 0.6)
+        p.setFont(f)
         p.setPen(QColor(colour))
         p.drawText(rect, flags, text)
+
+    def _badge(self, p, card, icon, ink):
+        """The card's kind, top right: its line icon on a wash of white."""
+        r = QRectF(card.right() - 52, card.y() + 16, 36, 36)
+        p.setPen(Qt.NoPen)
+        p.setBrush(QColor(255, 255, 255, 105))
+        p.drawRoundedRect(r, 11, 11)
+        p.save()
+        p.translate(r.x() + 8, r.y() + 8)
+        p.scale(20 / 24, 20 / 24)
+        pen = QPen(QColor(ink), 1.9)
+        pen.setCapStyle(Qt.RoundCap)
+        pen.setJoinStyle(Qt.RoundJoin)
+        p.setPen(pen)
+        p.setBrush(Qt.NoBrush)
+        p.drawPath(_path(ICONS[icon]))
+        p.restore()
 
     def paint_cards(self, p):
         self.cards = {}
         now = dt.datetime.now()
         y = 28
-        r = self._card(p, y, 104)
-        self._text(p, r.adjusted(18, 12, -18, 0), now.strftime("%H:%M"), 40, TEXT, QFont.DemiBold)
-        self._text(p, r.adjusted(18, 68, -18, 0), now.strftime("%A, %d %B").replace(" 0", " "),
+        r = self._card(p, y, 122)
+        self._text(p, r.adjusted(20, 12, -20, 0), now.strftime("%H:%M"), 50, TEXT, QFont.DemiBold)
+        self._text(p, r.adjusted(22, 82, -20, 0), now.strftime("%A, %d %B").replace(" 0", " "),
                    13, MUTED)
-        y += 104 + 12
+        y += 122 + 12
 
         fill, ink = TINT["butter"]
-        r = self._card(p, y, 96, fill, edge=False)
-        self._text(p, r.adjusted(18, 12, -18, 0), "Today's takings", 12, ink)
-        self._text(p, r.adjusted(18, 32, -18, 0), rupees(self.facts.takings), 26, ink, QFont.DemiBold)
+        r = self._card(p, y, 112, fill)
+        self._badge(p, r, "bill", ink)
+        self._text(p, r.adjusted(20, 16, -60, 0), "TODAY'S TAKINGS", 11, ink, QFont.DemiBold)
+        self._text(p, r.adjusted(20, 36, -20, 0), rupees(self.facts.takings), 32, ink, QFont.DemiBold)
         bills = self.facts.bills
-        self._text(p, r.adjusted(18, 64, -18, 0),
-                   "No bills yet today" if not bills else f"{bills} bill{'s' if bills != 1 else ''}",
+        self._text(p, r.adjusted(20, 80, -20, 0),
+                   "No bills yet today" if not bills else f"{bills} bill{'s' if bills != 1 else ''} today",
                    12, ink)
         self.cards["billing_app.py"] = r.toRect()
-        y += 96 + 12
+        y += 112 + 12
 
         fill, ink = TINT["mint"]
-        r = self._card(p, y, 78, fill, edge=False)
+        r = self._card(p, y, 96, fill)
+        self._badge(p, r, "inbox", ink)
         if self.facts.short:
             first = self.facts.first_short
             left = int(first["stock"]) if first else 0
-            self._text(p, r.adjusted(18, 12, -18, 0), f"Low on stock · {self.facts.short}", 12, ink)
-            p.setFont(font(15, QFont.DemiBold))
-            name = p.fontMetrics().elidedText(first["name"], Qt.ElideRight, CARD_W - 120) if first else ""
-            self._text(p, r.adjusted(18, 32, -18, 0),
-                       f"{name} · {left} left" if left > 0 else f"{name} · out", 15, ink, QFont.DemiBold)
+            self._text(p, r.adjusted(20, 16, -60, 0), f"LOW ON STOCK · {self.facts.short}", 11, ink,
+                       QFont.DemiBold)
+            p.setFont(font(17, QFont.DemiBold))
+            name = p.fontMetrics().elidedText(first["name"], Qt.ElideRight, CARD_W - 44) if first else ""
+            self._text(p, r.adjusted(20, 40, -20, 0), name, 17, ink, QFont.DemiBold)
+            self._text(p, r.adjusted(20, 66, -20, 0), f"{left} left" if left > 0 else "out of stock", 12, ink)
         else:
-            self._text(p, r.adjusted(18, 12, -18, 0), "Stock", 12, ink)
-            self._text(p, r.adjusted(18, 32, -18, 0), "Nothing running low", 15, ink, QFont.DemiBold)
+            self._text(p, r.adjusted(20, 16, -60, 0), "STOCK", 11, ink, QFont.DemiBold)
+            self._text(p, r.adjusted(20, 40, -20, 0), "Nothing running low", 17, ink, QFont.DemiBold)
         self.cards["findings_app.py"] = r.toRect()
-        y += 78 + 12
+        y += 96 + 12
 
-        r = self._card(p, y, 78)
-        self._text(p, r.adjusted(18, 12, -18, 0), "Shishya is", 12, MUTED)
-        self._text(p, r.adjusted(18, 32, -18, 0), STATES.get(self.state, STATES["idle"]).lower(),
-                   15, TEXT, QFont.DemiBold)
+        r = self._card(p, y, 84)
+        dot = {"idle": TINT["mint"][0], "working": MARIGOLD, "needs": TINT["peach"][0]}.get(self.state, TEXT)
+        p.setPen(Qt.NoPen)
+        p.setBrush(QColor(dot))
+        p.drawEllipse(QRectF(r.x() + 20, r.y() + 20, 8, 8))
+        self._text(p, r.adjusted(36, 14, -20, 0), "SHISHYA IS", 11, MUTED, QFont.DemiBold)
+        self._text(p, r.adjusted(20, 40, -20, 0), STATES.get(self.state, STATES["idle"]).lower(),
+                   17, TEXT, QFont.DemiBold)
         self.cards["activity_app.py"] = r.toRect()
 
     def paintEvent(self, _e):
@@ -1024,7 +1084,7 @@ class Desktop(QWidget):
         # the mark: शि, large and quiet in the corner
         if self.wallmark:
             p.setFont(font(300, QFont.DemiBold, "Nirmala UI"))
-            p.setPen(QColor(MARK) if self.live is None else QColor(255, 255, 255, 18))
+            p.setPen(QColor(255, 255, 255, 13 if self.live is None else 18))
             p.drawText(QRect(0, 0, W - 56, H - RESERVED + 10), Qt.AlignRight | Qt.AlignBottom,
                        self.wallmark)
         self.paint_cards(p)
