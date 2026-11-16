@@ -128,12 +128,19 @@ What changed to get there, so nobody has to rediscover it:
   a side edge for half of it, a corner to resize by, rounded corners. An app
   opened twice is one window brought forward. The dock holds the six pinned
   apps and every open window; a window put away keeps its button.
-- **One look, and it is light whatever the PC is set to.** The apps, the
-  desk and the home page share one palette (`clone/kit.py`): warm paper, ink,
-  the home page's tints. Qt follows Windows' dark mode for every widget a
-  stylesheet does not name, and until 1.1.0 the stylesheet named only some:
-  on a PC in dark mode the chat, Findings and the bill were black with dark
-  text on them. Every colour role is set now, and the light scheme is forced.
+- **One design language, written down** ([`DESIGN.md`](DESIGN.md), "Ink &
+  Marigold"). The home page, the control panel, the clone's desk and its apps
+  used to speak three: frosted glass over a photo, navy and cream, a dark
+  monospace console. Now the ground of every surface is deep ink with a drawn
+  aurora in it, everything you read or type into is a crisp light sheet, and
+  marigold is the one colour that means "act". The tokens live in
+  `clone/kit.py` and the pages' `:root`; nothing is fetched from the network
+  (the panel used to load its fonts from Google).
+- **The apps are light whatever the PC is set to.** Qt follows Windows' dark
+  mode for every widget a stylesheet does not name, and until 1.1.0 the
+  stylesheet named only some: on a PC in dark mode the chat, Findings and the
+  bill were black with dark text on them. Every colour role is set now, and
+  the light scheme is forced.
 - **Sheets is the clone's spreadsheet** — Name Box, A1 references, Enter
   moves down — because lessons are taught and performed against the same
   application, and LibreOffice is not part of the install.

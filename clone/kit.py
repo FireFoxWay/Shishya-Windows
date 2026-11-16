@@ -232,6 +232,12 @@ QHeaderView::section:horizontal:only-one {{ border-top-left-radius: 11px;
 QTableCornerButton::section {{ background: #FAFAFD; border: 0; border-bottom: 1px solid {RULE};
                                border-top-left-radius: 11px; }}
 
+QTableWidget#grid {{ gridline-color: #DFE1EC; border-radius: 10px; }}
+QTableWidget#grid QHeaderView::section {{ background: {PAPER}; border-right: 1px solid #DFE1EC;
+    border-bottom: 1px solid #DFE1EC; border-radius: 0; padding: 4px 6px; }}
+QTableWidget#grid QTableCornerButton::section {{ background: {PAPER}; border-right: 1px solid #DFE1EC;
+    border-bottom: 1px solid #DFE1EC; }}
+
 QTabWidget::pane {{ border: 1px solid {RULE}; border-radius: 12px; background: {SURFACE};
                     top: 6px; }}
 QTabBar {{ background: transparent; }}

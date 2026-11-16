@@ -20,56 +20,52 @@
    nothing about how it works.
    ========================================================================== */
 
-@import url("https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap");
 
 :root {
   color-scheme: light;
 
   /* The ground is a gradient, not a flat fill — it is what gives the
      reference its depth without a single shadow. */
-  --sky-1:  #DCDEE1;
-  --sky-2:  #C6C9CE;
-  --paper:  #E8E9EB;
-  --card:   rgba(255,255,255,.42);
+  --sky-1:  #F4F5FA;
+  --sky-2:  #E8E9F2;
+  --paper:  #FFFFFF;
+  --card:   rgba(255,255,255,.72);
 
-  --ink:    #0B0C0E;
-  --ink-2:  #3A3D42;
-  /* Measured against the darker end of the ground, not guessed. The old
-     values were 1.96:1 and 1.35:1 — every section label, the ledger's
-     captions and the corner marks were not subtle, they were unreadable.
-     Quiet is a contrast ratio you can defend; these clear 3:1 and 4.5:1
-     at the bottom of the gradient, where the panel is darkest. */
-  --ink-3:  #4E545C;
-  --ink-4:  #5F656D;
+  --ink:    #14162B;
+  --ink-2:  #2A2E52;
+  --ink-3:  #62678A;
+  --ink-4:  #62678A;
 
-  --line:   rgba(11,12,14,.22);
-  --line-2: rgba(11,12,14,.10);
+  --line:   rgba(20,22,43,.18);
+  --line-2: rgba(20,22,43,.09);
 
-  --ui:   "Archivo", -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-  --mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --accent: #F5B63A;
+  --glow-a: rgba(75,80,224,.10); --glow-b: rgba(18,165,148,.08);
+  --glow-c: rgba(245,182,58,.10); --glow-d: rgba(138,79,216,.07);
+
+  --ui:   "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", "Nirmala UI", system-ui, sans-serif;
+  --mono: "Cascadia Mono", "Consolas", ui-monospace, monospace;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     color-scheme: dark;
-    --sky-1:  #1A1C1F;
-    --sky-2:  #0C0D0F;
-    --paper:  #141618;
-    --card:   rgba(255,255,255,.05);
-    --ink:    #F2F3F5;
-    --ink-2:  #C6CAD0;
-    --ink-3:  #8B919A;
-    --ink-4:  #767C84;
-    --line:   rgba(242,243,245,.24);
-    --line-2: rgba(242,243,245,.11);
+    --sky-1: #14162B; --sky-2: #0B0C1D; --paper: #14162B;
+    --card: rgba(255,255,255,.055);
+    --ink: #F3F2FA; --ink-2: #D5D7E6; --ink-3: #A7A9C4; --ink-4: #8E91B0;
+    --line: rgba(243,242,250,.20); --line-2: rgba(243,242,250,.10);
+    --glow-a: rgba(75,80,224,.34); --glow-b: rgba(18,165,148,.22);
+    --glow-c: rgba(245,182,58,.15); --glow-d: rgba(138,79,216,.17);
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --sky-1: #1A1C1F; --sky-2: #0C0D0F; --paper: #141618;
-  --card: rgba(255,255,255,.05);
-  --ink: #F2F3F5; --ink-2: #C6CAD0; --ink-3: #8B919A; --ink-4: #767C84;
-  --line: rgba(242,243,245,.24); --line-2: rgba(242,243,245,.11);
+  --sky-1: #14162B; --sky-2: #0B0C1D; --paper: #14162B;
+  --card: rgba(255,255,255,.055);
+  --ink: #F3F2FA; --ink-2: #D5D7E6; --ink-3: #A7A9C4; --ink-4: #8E91B0;
+  --line: rgba(243,242,250,.20); --line-2: rgba(243,242,250,.10);
+  --glow-a: rgba(75,80,224,.34); --glow-b: rgba(18,165,148,.22);
+  --glow-c: rgba(245,182,58,.15); --glow-d: rgba(138,79,216,.17);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -751,3 +747,33 @@ body {
 .seg .tool + .tool { border-left: 0; }
 .tool.mini { min-width: 30px; padding: 0 8px; justify-content: center;
              font-size: 13px; letter-spacing: 0; }
+
+
+/* ─── Ink & Marigold (DESIGN.md) ──────────────────────────────────────────
+   The console keeps its density and its instrument's manners — readouts,
+   rules, small capitals. What it takes from the product's one language: the
+   ink ground with the aurora in it, marigold for whatever acts, the PC's own
+   faces instead of fonts fetched from the network, and corners that are no
+   longer sharp. */
+body {
+  letter-spacing: 0;
+  background:
+    radial-gradient(62vw 62vw at 80% 14%, var(--glow-a), transparent 70%),
+    radial-gradient(56vw 56vw at 8% 98%, var(--glow-b), transparent 70%),
+    radial-gradient(42vw 42vw at 90% 102%, var(--glow-c), transparent 70%),
+    radial-gradient(46vw 46vw at 36% -12%, var(--glow-d), transparent 70%),
+    linear-gradient(170deg, var(--sky-1) 0%, var(--sky-2) 100%);
+}
+::selection { background: var(--accent); color: #14162B; }
+.mark { background: var(--accent); border-radius: 3px; }
+.tool, .themeSwap, .pick, .wheel, .askRow input, .who select, .newHost input,
+.hints button, .rail button, .entry input { border-radius: 9px; }
+.screen, .answer, .drop, .term, .card, .plan { border-radius: 12px; }
+.screen iframe, .screen #cloneScreen { border-radius: 11px; }
+.tool { letter-spacing: .06em; font-weight: 600; }
+.tool:hover:not(:disabled), .tool.ghost:hover:not(:disabled), .themeSwap:hover {
+  background: var(--accent); color: #14162B; border-color: var(--accent);
+}
+.tool:focus-visible, .themeSwap:focus-visible, .pick:focus, .askRow input:focus {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}

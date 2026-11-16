@@ -1,5 +1,7 @@
 # The clone's desktop: design guide
 
+> **The colours, type and shapes below were replaced in November 2026 by the product-wide system in [DESIGN.md](../../DESIGN.md) ("Ink & Marigold").** The ideas and the layout here still hold; where a hex value or a size differs, DESIGN.md and the code are right.
+
 *"The apprentice's desk."* The screen Shishya works on, and the one you take over when you have the wheel. The code is in `clone/desktop.py`; window chrome is in `clone/kit.py`.
 
 ![The desk](clone-desk.png)
